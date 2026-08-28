@@ -9,6 +9,8 @@ import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../../commissions/presentation/commissions_screen.dart';
 import '../../customers/presentation/customers_screen.dart';
+import '../../expenses/presentation/expenses_screen.dart';
+import '../../inventory/presentation/inventory_screen.dart';
 import '../../pos/presentation/pos_screen.dart';
 import '../../products/presentation/products_screen.dart';
 import '../../services/presentation/services_screen.dart';
@@ -34,10 +36,10 @@ const _navItems = [
   _NavItem(icon: Icons.groups_outlined, label: 'Customers', minRole: BusinessRole.cashier, implemented: true),
   _NavItem(icon: Icons.spa_outlined, label: 'Services', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.inventory_2_outlined, label: 'Products', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.warehouse_outlined, label: 'Inventory', minRole: BusinessRole.manager),
+  _NavItem(icon: Icons.warehouse_outlined, label: 'Inventory', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.badge_outlined, label: 'Staff', minRole: BusinessRole.admin, implemented: true),
   _NavItem(icon: Icons.percent_outlined, label: 'Commissions', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin),
+  _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin, implemented: true),
   _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager),
   _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin),
 ];
@@ -111,6 +113,10 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const StaffScreen();
       case 'Commissions':
         return const CommissionsScreen();
+      case 'Inventory':
+        return const InventoryScreen();
+      case 'Expenses':
+        return const ExpensesScreen();
       default:
         return _OverviewContent(selectedLabel: item.label, implemented: item.implemented);
     }

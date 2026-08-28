@@ -5,6 +5,13 @@ enum PaymentMethod {
   card,
   other;
 
+  static PaymentMethod fromDb(String value) {
+    return PaymentMethod.values.firstWhere(
+      (m) => m.dbValue == value,
+      orElse: () => throw ArgumentError('Unknown payment_method_enum: $value'),
+    );
+  }
+
   String get dbValue => switch (this) {
         PaymentMethod.cash => 'CASH',
         PaymentMethod.bankTransfer => 'BANK_TRANSFER',

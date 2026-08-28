@@ -1,10 +1,11 @@
 # Beauty Clinic POS — Implementation Plan
 
-Status snapshot: **Day 3 complete** — Day 1 (Foundation), Day 2 (POS Core),
-and Day 3 (CRM + Staff + Commission) are implemented and verified green
-against the live Supabase project. This document is updated as each day
-lands — it reflects what's actually built, not aspirations. See the
-Definition of Done checklist at the bottom for live status.
+Status snapshot: **Day 4 complete** — Day 1 (Foundation), Day 2 (POS Core),
+Day 3 (CRM + Staff + Commission), and Day 4 (Inventory + Expenses) are
+implemented and verified green against the live Supabase project. This
+document is updated as each day lands — it reflects what's actually
+built, not aspirations. See the Definition of Done checklist at the
+bottom for live status.
 
 ## 1. Product & Stack
 
@@ -158,8 +159,8 @@ every CRUD op" guidance.
    receipt.
 3. **CRM + Staff** (done) — customer profiles/history, staff management,
    commission calculation.
-4. **Inventory + Expenses** — stock movements wired to sales, suppliers,
-   low-stock, expense tracking.
+4. **Inventory + Expenses** (done) — stock movements wired to sales,
+   suppliers, low-stock, expense tracking.
 5. **Dashboard + Reports** — real metrics (today's sales, commission,
    expenses, estimated profit), report filters/export.
 6. **Security + Hardening** — refund/void flow, audit log wiring across
@@ -205,9 +206,9 @@ fresh Supabase project:
 - [x] POS
 - [x] Payments
 - [x] Receipts
-- [ ] Inventory
+- [x] Inventory
 - [x] Commission
-- [ ] Expenses
+- [x] Expenses
 - [ ] Dashboard (real metrics)
 - [ ] Reports
 - [ ] Refund/Void
@@ -246,3 +247,36 @@ fresh Supabase project:
   - `flutter analyze`: no issues
   - `flutter test` (full suite): all passing (live suites skip without
     `env.json` credentials)
+
+**Day 4 completion notes** (2026-08-28 live verification):
+- Inventory stock adjustment RPC (`adjust_stock`, added in
+  `0020_inventory_stock_adjustment.sql`) — atomically inserts the
+  `inventory_movements` row and updates `products.stock_quantity` in one
+  transaction, so a client never has to orchestrate the two writes itself.
+  MANAGER+ only, product row locked and re-verified against
+  `business_id`, negative stock rejected, and `SALE` is blocked as a
+  manual movement type (that stays `complete_sale`-only) — done.
+- Supplier management (list/create/edit) — done.
+- Inventory movement ledger (read view over `inventory_movements`,
+  including manual adjustments and existing sale-driven movements) —
+  done.
+- Low-stock surfacing in the Stock tab, reusing the existing
+  `Product.isLowStock` getter from Day 2 — done.
+- Expense categories and expenses (list/filter, create/edit/delete) —
+  done.
+- RLS/cross-tenant isolation: no new RLS policy was needed — suppliers,
+  inventory_movements, expense_categories, and expenses have carried
+  their RLS since the Day 1 foundation migrations; Day 4 only added the
+  one RPC required for atomic stock adjustment. Cross-tenant reads and
+  under-privileged writes were verified live to fail exactly like every
+  other Day 2/3 table.
+- Live regression gates, all green against the live Supabase project
+  (migration `0020` applied and verified):
+  - Day 4 Inventory/Expenses regression: 9/9
+  - Day 2 POS regression (frozen): 4/4
+  - F1 + SEC-CRITICAL regression (frozen): 6/6
+  - Day 3 Customer/Staff/Commission regression (frozen): 8/8
+  - Staff invite lookup regression (frozen): 7/7
+  - `flutter analyze`: no issues
+  - `flutter test` (full suite): 17 passed, 35 skipped, 0 failed (live
+    suites skip without `env.json` credentials)
