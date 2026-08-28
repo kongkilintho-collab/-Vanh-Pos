@@ -9,11 +9,16 @@ class BusinessRepository {
   BusinessRepository(this._client);
 
   /// The current user's active business memberships, most recently joined
-  /// first. RLS guarantees this can never include another user's rows.
+  /// first. Must filter by user_id explicitly: RLS only guarantees the
+  /// businesses are ones the caller belongs to, not that a row is the
+  /// caller's own — without this filter, any co-member's row in the same
+  /// business is also visible and would be returned here.
   Future<List<BusinessMembership>> myMemberships() async {
+    final userId = _client.auth.currentUser!.id;
     final rows = await _client
         .from('business_members')
         .select('id, role, active, businesses(*)')
+        .eq('user_id', userId)
         .eq('active', true)
         .order('created_at');
 
