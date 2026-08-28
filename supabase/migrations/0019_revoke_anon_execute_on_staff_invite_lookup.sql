@@ -1,0 +1,19 @@
+-- 0018 created find_invitable_user_id() and explicitly did:
+--   revoke execute on function find_invitable_user_id(uuid, text) from public;
+--   grant execute on function find_invitable_user_id(uuid, text) to authenticated;
+--
+-- Live verification after applying 0018 showed anon_can_execute = true
+-- despite that REVOKE FROM PUBLIC. Root cause (confirmed via pg_default_acl):
+-- this project's default privileges automatically grant EXECUTE on every
+-- newly created function in the public schema to anon, authenticated, and
+-- service_role as separate, explicit ACL entries -- applied at CREATE
+-- FUNCTION time, independent of the PUBLIC pseudo-role. Revoking from
+-- PUBLIC never touched that separate anon grant.
+--
+-- This migration closes that gap for this one function only. It is
+-- intentionally NOT a database-wide default-privilege change (that would
+-- affect every future function project-wide and still wouldn't
+-- retroactively fix already-existing functions) -- a broader sweep across
+-- all RPCs and the project's default-privilege configuration is tracked
+-- as Day 6 ("Security + Hardening") work instead.
+revoke execute on function find_invitable_user_id(uuid, text) from anon;

@@ -1,8 +1,10 @@
 # Beauty Clinic POS — Implementation Plan
 
-Status snapshot: **Day 1 (Foundation) in progress.** This document is updated
-as each day lands — it reflects what's actually built, not aspirations.
-See the Definition of Done checklist at the bottom for live status.
+Status snapshot: **Day 3 complete** — Day 1 (Foundation), Day 2 (POS Core),
+and Day 3 (CRM + Staff + Commission) are implemented and verified green
+against the live Supabase project. This document is updated as each day
+lands — it reflects what's actually built, not aspirations. See the
+Definition of Done checklist at the bottom for live status.
 
 ## 1. Product & Stack
 
@@ -106,6 +108,16 @@ OWNER.
 | Audit log (read) | ✓ | ✓ | | | |
 | POS / own assigned sales | ✓ | ✓ | ✓ | ✓ | read-only |
 
+**Follow-up privilege correction (Day 3):** `find_invitable_user_id`
+(added in `0018_staff_invite_lookup.sql`) needed a second migration,
+`0019_revoke_anon_execute_on_staff_invite_lookup.sql`, because this
+project's default privileges grant `EXECUTE` on every newly created
+`public` function to `anon` as a separate ACL entry — independent of, and
+not touched by, `revoke ... from public`. `0019` revokes `anon` execute on
+this one function specifically. A broader, project-wide default-privilege
+sweep across all RPCs remains intentionally out of scope here and is
+tracked as Day 6 ("Security + Hardening") work.
+
 ## 5. Transaction / RPC Strategy
 
 Business-critical multi-step writes go through `SECURITY DEFINER`
@@ -140,11 +152,11 @@ every CRUD op" guidance.
 
 ## 7. 7-Day Timeline
 
-1. **Foundation** (in progress) — Flutter scaffold, design system, full
+1. **Foundation** (done) — Flutter scaffold, design system, full
    schema + RLS migrations, auth, business onboarding, dashboard shell.
-2. **POS Core** — services/products CRUD, cart, checkout RPC, payments,
+2. **POS Core** (done) — services/products CRUD, cart, checkout RPC, payments,
    receipt.
-3. **CRM + Staff** — customer profiles/history, staff management,
+3. **CRM + Staff** (done) — customer profiles/history, staff management,
    commission calculation.
 4. **Inventory + Expenses** — stock movements wired to sales, suppliers,
    low-stock, expense tracking.
@@ -181,35 +193,56 @@ fresh Supabase project:
 
 ## 10. Definition of Done
 
-- [x] Supabase connected (Flutter client wired; schema not yet applied —
-      see section 9)
+- [x] Supabase connected (Flutter client wired; schema applied — see
+      section 9)
 - [x] Database migrations complete (Day 1 core schema)
 - [x] RLS enabled on every business table
 - [x] Authentication works (sign up, sign in, password reset, sign out)
 - [x] Roles work (`business_role` + RLS permission matrix)
-- [ ] Customer CRM
-- [ ] Services
-- [ ] Products
-- [ ] POS
-- [ ] Payments
-- [ ] Receipts
+- [x] Customer CRM
+- [x] Services
+- [x] Products
+- [x] POS
+- [x] Payments
+- [x] Receipts
 - [ ] Inventory
-- [ ] Commission
+- [x] Commission
 - [ ] Expenses
 - [ ] Dashboard (real metrics)
 - [ ] Reports
 - [ ] Refund/Void
-- [ ] Audit logs wired to every mutation
-- [ ] Duplicate transaction protection (idempotency key column exists;
-      not yet enforced by a checkout RPC)
+- [ ] Audit logs wired to every mutation (`complete_sale` writes an audit
+      log row for the sale; not yet extended to every other mutation)
+- [x] Duplicate transaction protection (`sales.idempotency_key`, enforced
+      by `complete_sale` — verified live: a retried submit is a no-op,
+      not a duplicate sale)
 - [x] Error handling (friendly error translation layer; expands as
       features land)
-- [x] Responsive UI (sidebar shell today; POS-specific responsive layout
-      in Day 2)
-- [ ] Security tests
-- [ ] RLS tests
+- [x] Responsive UI (sidebar shell + POS-specific responsive layout)
+- [x] Security tests (live authorization regression coverage across POS,
+      CRM, staff, and commissions — see Day 3 completion notes below)
+- [x] RLS tests (cross-tenant isolation, OWNER/escalation guards, and
+      append-only policies all exercised as real authenticated users)
 - [x] `flutter analyze` passes
 - [x] `flutter test` passes
 - [ ] production build verified
 - [ ] deployment
 - [ ] documentation complete (this file is the start)
+
+**Day 3 completion notes** (2026-08-28 live verification):
+- Customer CRM (list/search, create/edit, profile) — done.
+- Customer purchase history (via `sales`) — done.
+- Customer notes (append-only, no update/delete policy) — done.
+- Staff roster, roles, activate/deactivate — done.
+- Staff invite-by-email (`find_invitable_user_id` → `invite_business_member`) — done.
+- Commission calculation (via `complete_sale`) and commission ledger
+  (list/filter/status transitions) — done.
+- Dashboard navigation wired for Customers, Staff, and Commissions — done.
+- Live regression gates, all green against the live Supabase project:
+  - Day 2 POS regression: 4/4
+  - Day 3 Customer/Staff/Commission regression: 8/8
+  - Staff invite lookup regression: 7/7
+  - F1 + SEC-CRITICAL regression: 6/6
+  - `flutter analyze`: no issues
+  - `flutter test` (full suite): all passing (live suites skip without
+    `env.json` credentials)

@@ -21,8 +21,6 @@ import 'package:beauty_clinic_pos/shared/models/business_role.dart';
 
 const _ownerAEmail = 'van@test.local';
 const _ownerAPassword = 'admin123456@';
-const _ownerBEmail = 'admin@test.local';
-const _ownerBPassword = '123456@12';
 const _uuid = Uuid();
 
 final _canRun = Env.supabaseUrl.isNotEmpty && Env.supabaseAnonKey.isNotEmpty;
@@ -56,7 +54,10 @@ void main() {
     }
     final client = Supabase.instance.client;
     await _signIn(client, _ownerAEmail, _ownerAPassword);
-    final businessId = (await BusinessRepository(client).myMemberships()).first.business.id;
+    final businessId = (await BusinessRepository(client).myMemberships())
+        .firstWhere((m) => m.role == BusinessRole.owner)
+        .business
+        .id;
 
     // Minimal fixture data for this test only.
     final service = await client
@@ -143,7 +144,10 @@ void main() {
     }
     final client = Supabase.instance.client;
     await _signIn(client, _ownerAEmail, _ownerAPassword);
-    final businessId = (await BusinessRepository(client).myMemberships()).first.business.id;
+    final businessId = (await BusinessRepository(client).myMemberships())
+        .firstWhere((m) => m.role == BusinessRole.owner)
+        .business
+        .id;
 
     final service = await client
         .from('services')
@@ -210,7 +214,10 @@ void main() {
     }
     final client = Supabase.instance.client;
     await _signIn(client, _ownerAEmail, _ownerAPassword);
-    final businessId = (await BusinessRepository(client).myMemberships()).first.business.id;
+    final businessId = (await BusinessRepository(client).myMemberships())
+        .firstWhere((m) => m.role == BusinessRole.owner)
+        .business
+        .id;
 
     final product = await client
         .from('products')
@@ -261,20 +268,17 @@ void main() {
     }
     final client = Supabase.instance.client;
 
-    // Business B belongs to User B; User A has zero membership there.
-    await _signIn(client, _ownerBEmail, _ownerBPassword);
-    final businessBId = (await BusinessRepository(client).myMemberships())
-        .firstWhere((m) => m.role == BusinessRole.owner)
-        .business
-        .id;
-    await client.auth.signOut();
+    // A synthetic business id that corresponds to no business at all, so it
+    // can never coincide with a membership User A happens to hold (unlike a
+    // real fixture business, which User A may have since been added to).
+    final nonMemberBusinessId = _uuid.v4();
 
     await _signIn(client, _ownerAEmail, _ownerAPassword);
     final repo = PosRepository(client);
 
     await expectLater(
       repo.completeSale(
-        businessId: businessBId,
+        businessId: nonMemberBusinessId,
         branchId: null,
         customerId: null,
         items: [

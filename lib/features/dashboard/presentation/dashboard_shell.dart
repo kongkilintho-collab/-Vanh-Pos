@@ -7,9 +7,12 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/business_context_provider.dart';
+import '../../commissions/presentation/commissions_screen.dart';
+import '../../customers/presentation/customers_screen.dart';
 import '../../pos/presentation/pos_screen.dart';
 import '../../products/presentation/products_screen.dart';
 import '../../services/presentation/services_screen.dart';
+import '../../staff/presentation/staff_screen.dart';
 
 class _NavItem {
   final IconData icon;
@@ -28,12 +31,12 @@ class _NavItem {
 const _navItems = [
   _NavItem(icon: Icons.dashboard_outlined, label: 'Overview', implemented: true),
   _NavItem(icon: Icons.point_of_sale_outlined, label: 'POS', minRole: BusinessRole.cashier, implemented: true),
-  _NavItem(icon: Icons.groups_outlined, label: 'Customers', minRole: BusinessRole.cashier),
+  _NavItem(icon: Icons.groups_outlined, label: 'Customers', minRole: BusinessRole.cashier, implemented: true),
   _NavItem(icon: Icons.spa_outlined, label: 'Services', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.inventory_2_outlined, label: 'Products', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.warehouse_outlined, label: 'Inventory', minRole: BusinessRole.manager),
-  _NavItem(icon: Icons.badge_outlined, label: 'Staff', minRole: BusinessRole.admin),
-  _NavItem(icon: Icons.percent_outlined, label: 'Commissions', minRole: BusinessRole.manager),
+  _NavItem(icon: Icons.badge_outlined, label: 'Staff', minRole: BusinessRole.admin, implemented: true),
+  _NavItem(icon: Icons.percent_outlined, label: 'Commissions', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin),
   _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager),
   _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin),
@@ -102,6 +105,12 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const ServicesScreen();
       case 'Products':
         return const ProductsScreen();
+      case 'Customers':
+        return const CustomersScreen();
+      case 'Staff':
+        return const StaffScreen();
+      case 'Commissions':
+        return const CommissionsScreen();
       default:
         return _OverviewContent(selectedLabel: item.label, implemented: item.implemented);
     }
