@@ -13,6 +13,8 @@ import '../../expenses/presentation/expenses_screen.dart';
 import '../../inventory/presentation/inventory_screen.dart';
 import '../../pos/presentation/pos_screen.dart';
 import '../../products/presentation/products_screen.dart';
+import '../../reports/presentation/dashboard_overview_screen.dart';
+import '../../reports/presentation/reports_screen.dart';
 import '../../services/presentation/services_screen.dart';
 import '../../staff/presentation/staff_screen.dart';
 
@@ -40,7 +42,7 @@ const _navItems = [
   _NavItem(icon: Icons.badge_outlined, label: 'Staff', minRole: BusinessRole.admin, implemented: true),
   _NavItem(icon: Icons.percent_outlined, label: 'Commissions', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin, implemented: true),
-  _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager),
+  _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin),
 ];
 
@@ -117,6 +119,10 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const InventoryScreen();
       case 'Expenses':
         return const ExpensesScreen();
+      case 'Overview':
+        return const DashboardOverviewScreen();
+      case 'Reports':
+        return const ReportsScreen();
       default:
         return _OverviewContent(selectedLabel: item.label, implemented: item.implemented);
     }

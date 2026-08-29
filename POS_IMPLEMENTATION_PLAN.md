@@ -1,11 +1,11 @@
 # Beauty Clinic POS — Implementation Plan
 
-Status snapshot: **Day 4 complete** — Day 1 (Foundation), Day 2 (POS Core),
-Day 3 (CRM + Staff + Commission), and Day 4 (Inventory + Expenses) are
-implemented and verified green against the live Supabase project. This
-document is updated as each day lands — it reflects what's actually
-built, not aspirations. See the Definition of Done checklist at the
-bottom for live status.
+Status snapshot: **Day 5 complete** — Day 1 (Foundation), Day 2 (POS Core),
+Day 3 (CRM + Staff + Commission), Day 4 (Inventory + Expenses), and Day 5
+(Dashboard + Reports) are implemented and verified green against the live
+Supabase project. This document is updated as each day lands — it
+reflects what's actually built, not aspirations. See the Definition of
+Done checklist at the bottom for live status.
 
 ## 1. Product & Stack
 
@@ -161,7 +161,7 @@ every CRUD op" guidance.
    commission calculation.
 4. **Inventory + Expenses** (done) — stock movements wired to sales,
    suppliers, low-stock, expense tracking.
-5. **Dashboard + Reports** — real metrics (today's sales, commission,
+5. **Dashboard + Reports** (done) — real metrics (today's sales, commission,
    expenses, estimated profit), report filters/export.
 6. **Security + Hardening** — refund/void flow, audit log wiring across
    all mutations, RLS re-audit, error handling pass, UX polish.
@@ -209,8 +209,8 @@ fresh Supabase project:
 - [x] Inventory
 - [x] Commission
 - [x] Expenses
-- [ ] Dashboard (real metrics)
-- [ ] Reports
+- [x] Dashboard (real metrics)
+- [x] Reports
 - [ ] Refund/Void
 - [ ] Audit logs wired to every mutation (`complete_sale` writes an audit
       log row for the sale; not yet extended to every other mutation)
@@ -280,3 +280,50 @@ fresh Supabase project:
   - `flutter analyze`: no issues
   - `flutter test` (full suite): 17 passed, 35 skipped, 0 failed (live
     suites skip without `env.json` credentials)
+
+**Day 5 completion notes** (2026-08-29 live verification):
+- Real metrics on the Overview tab (today's revenue, commission, expenses,
+  estimated profit) — done. Overview's visibility is intentionally left
+  unchanged (all roles, matching every other Day 1–4 day) — the read RLS
+  on `sales`/`commissions`/`expenses` already permits any active member to
+  read these rows, so restricting the tab would be cosmetic, not a real
+  security boundary; `Reports` keeps its existing `MANAGER`+ gate.
+- Reports screen (existing stub nav item) with a Today / This week / This
+  month / Custom date-range filter, the same four metrics for the
+  selected range, a daily-revenue chart (`fl_chart`, already a
+  dependency), a sales table (`data_table_2`, already a dependency), and
+  a dependency-free CSV export (built client-side, copied to the
+  clipboard via `package:flutter/services.dart`) — done.
+- No migration, no new RLS policy, and no new RPC were needed — every
+  query is a plain read against `sales`, `sale_items`, `commissions`,
+  `expenses`, and `products`, all of which have carried
+  `is_member(business_id)` SELECT RLS since the Day 1 foundation
+  migrations. Day 5 introduces no new write path at all.
+- Estimated profit = revenue − COGS − commissions − expenses, where COGS
+  is each `PRODUCT` sale item's quantity × the product's *current*
+  `cost_price` (no historical cost is snapshotted anywhere in the schema,
+  hence "estimated" — `cost_price` existed on `Product` since Day 2 but
+  had no consumer until now).
+- Live-verification bug found and fixed during this day's own testing
+  (not a regression in any frozen day): `ReportsRepository`'s date-range
+  filters against `timestamptz` columns (`sales`/`sale_items`/
+  `commissions.created_at`) initially compared against naive local-time
+  ISO strings, which Postgres silently interprets as UTC — an hours-wide
+  skew for this project's non-UTC deployment. Fixed by converting to UTC
+  before filtering (`_instant()` in `reports_repository.dart`);
+  `expenses.expense_date` (a plain `date` column, no time-of-day
+  component) was unaffected and needed no change.
+- Live regression gates, all green against the live Supabase project:
+  - Day 5 Reports regression: 4/4
+  - Day 2 POS regression (frozen): 4/4
+  - F1 + SEC-CRITICAL regression (frozen): 6/6
+  - Day 3 Customer/Staff/Commission regression (frozen): 8/8
+  - Staff invite lookup regression (frozen): 7/7
+  - Day 4 Inventory/Expenses regression (frozen): 9/9
+  - `flutter analyze`: no issues
+  - `flutter test` (full suite): 17 passed, 39 skipped, 0 failed (live
+    suites skip without `env.json` credentials)
+- Known deferred work: export is clipboard-CSV only (no file-download or
+  share-sheet package was added, per "no new dependencies unless
+  absolutely required"); no report result is cached, so switching the
+  date-range filter re-queries live each time.
