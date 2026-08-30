@@ -1179,5 +1179,994 @@ grant execute on function complete_sale(
   uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
 ) to authenticated;
 
+-- ===== 0018_staff_invite_lookup.sql =====
+-- Resolves an email address to a user_id so an ADMIN+ can invite an
+-- existing account into their business via invite_business_member(),
+-- which requires a user_id -- profiles carries no email column (email
+-- lives only in auth.users), so without this there is no client-safe way
+-- to turn "invite this email" into the user_id that RPC needs.
+--
+-- Deliberately NOT a general "find user by email" API:
+--   - the caller must already be ADMIN+ of the SPECIFIC business they're
+--     inviting into (p_business_id is a required, checked parameter, not
+--     merely "some business" the caller happens to belong to);
+--   - the only thing ever returned is a bare uuid or null -- never email,
+--     name, phone, or any other auth.users field;
+--   - unauthenticated/insufficiently-privileged callers are rejected via
+--     the same has_role_at_least() check every other write path in this
+--     schema uses, so auth.uid() being null or the caller lacking ADMIN+
+--     both fail closed the same way invite_business_member() itself does.
+--
+-- Accepted, explicit tradeoff: an ADMIN can still learn "an account with
+-- this email exists" for an email they try -- that is the inherent
+-- minimum disclosure of any invite-by-email flow and is bounded to
+-- authenticated ADMIN-tier members of a real business, not any caller.
+create or replace function find_invitable_user_id(p_business_id uuid, p_email text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_user_id uuid;
+begin
+  if not has_role_at_least(p_business_id, 'ADMIN') then
+    raise exception 'Insufficient permission to look up invitable users';
+  end if;
+
+  select id into v_user_id
+  from auth.users
+  where lower(email) = lower(trim(coalesce(p_email, '')))
+  limit 1;
+
+  return v_user_id;
+end;
+$$;
+
+revoke execute on function find_invitable_user_id(uuid, text) from public;
+grant execute on function find_invitable_user_id(uuid, text) to authenticated;
+
+-- ===== 0019_revoke_anon_execute_on_staff_invite_lookup.sql =====
+-- 0018 created find_invitable_user_id() and explicitly did:
+--   revoke execute on function find_invitable_user_id(uuid, text) from public;
+--   grant execute on function find_invitable_user_id(uuid, text) to authenticated;
+--
+-- Live verification after applying 0018 showed anon_can_execute = true
+-- despite that REVOKE FROM PUBLIC. Root cause (confirmed via pg_default_acl):
+-- this project's default privileges automatically grant EXECUTE on every
+-- newly created function in the public schema to anon, authenticated, and
+-- service_role as separate, explicit ACL entries -- applied at CREATE
+-- FUNCTION time, independent of the PUBLIC pseudo-role. Revoking from
+-- PUBLIC never touched that separate anon grant.
+--
+-- This migration closes that gap for this one function only. It is
+-- intentionally NOT a database-wide default-privilege change (that would
+-- affect every future function project-wide and still wouldn't
+-- retroactively fix already-existing functions) -- a broader sweep across
+-- all RPCs and the project's default-privilege configuration is tracked
+-- as Day 6 ("Security + Hardening") work instead.
+revoke execute on function find_invitable_user_id(uuid, text) from anon;
+
+-- ===== 0020_inventory_stock_adjustment.sql =====
+-- Manual stock adjustments (restock, correction, damage, expired), keeping
+-- products.stock_quantity and inventory_movements consistent atomically --
+-- the same problem complete_sale (0017) already solves for the SALE
+-- movement type, applied here to the remaining movement types a MANAGER+
+-- can record by hand. Without this RPC, a client would need two separate
+-- writes (insert inventory_movements, update products.stock_quantity) with
+-- no way to guarantee both happen or neither does if the connection drops
+-- in between.
+--
+-- SECURITY DEFINER so it can write across both tables in one transaction,
+-- but it re-derives the caller's role itself via
+-- has_role_at_least(p_business_id, 'MANAGER') -- the same floor as
+-- products_update/inventory_movements_insert RLS -- before doing anything;
+-- p_business_id is never trusted purely because the client sent it, and
+-- the product row is locked and re-checked against p_business_id so a
+-- spoofed product_id from another tenant is rejected, not silently
+-- adjusted.
+--
+-- Learned from 0018/0019: this project's default privileges grant EXECUTE
+-- on every newly created public function to anon as a separate ACL entry,
+-- independent of PUBLIC -- so anon is revoked explicitly here at creation
+-- time instead of needing a follow-up migration.
+create or replace function adjust_stock(
+  p_business_id uuid,
+  p_product_id uuid,
+  p_branch_id uuid,
+  p_movement_type inventory_movement_type,
+  p_quantity_delta integer,
+  p_note text
+)
+returns products
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_product products;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'MANAGER') then
+    raise exception 'Insufficient permission to adjust stock';
+  end if;
+
+  if p_quantity_delta is null or p_quantity_delta = 0 then
+    raise exception 'Adjustment quantity must not be zero';
+  end if;
+
+  if p_movement_type = 'SALE' then
+    raise exception 'SALE movements can only be recorded by complete_sale';
+  end if;
+
+  select * into v_product from products
+    where id = p_product_id and business_id = p_business_id
+    for update;
+
+  if v_product.id is null then
+    raise exception 'Product not found in this business';
+  end if;
+
+  if v_product.stock_quantity + p_quantity_delta < 0 then
+    raise exception 'Adjustment would take % below zero stock', v_product.name;
+  end if;
+
+  update products set stock_quantity = stock_quantity + p_quantity_delta
+    where id = p_product_id
+    returning * into v_product;
+
+  insert into inventory_movements (
+    business_id, branch_id, product_id, movement_type, quantity,
+    reference_type, note, created_by
+  ) values (
+    p_business_id, p_branch_id, p_product_id, p_movement_type, p_quantity_delta,
+    'manual_adjustment', p_note, auth.uid()
+  );
+
+  return v_product;
+end;
+$$;
+
+revoke execute on function adjust_stock(uuid, uuid, uuid, inventory_movement_type, integer, text) from public;
+revoke execute on function adjust_stock(uuid, uuid, uuid, inventory_movement_type, integer, text) from anon;
+grant execute on function adjust_stock(uuid, uuid, uuid, inventory_movement_type, integer, text) to authenticated;
+
+-- ===== 0021_revoke_anon_execute_on_onboarding_and_checkout.sql =====
+-- Day 6 security audit (F3): create_business_with_owner, invite_business_member,
+-- and complete_sale were all created with `grant execute ... to authenticated`
+-- but never an explicit `revoke ... from anon` -- the same default-privilege
+-- gap 0019 already fixed for find_invitable_user_id and 0020 already avoided
+-- for adjust_stock. Confirmed live (empirical anon RPC probe, matching the
+-- technique 0019 itself used): all three returned the function's own
+-- internal exception (P0001) to an unauthenticated caller instead of
+-- Postgres's `42501 permission denied` -- proof anon currently holds
+-- EXECUTE on all three.
+--
+-- This does not change any authorization or business rule already enforced
+-- inside these functions -- every legitimate authenticated caller is
+-- completely unaffected. It closes the ACL-level backstop so an anonymous
+-- caller is rejected by Postgres itself, before the function body (and its
+-- internal checks) ever runs, exactly like find_invitable_user_id/
+-- adjust_stock already are.
+revoke execute on function create_business_with_owner(text, text, text, text, text, text) from public;
+revoke execute on function create_business_with_owner(text, text, text, text, text, text) from anon;
+grant execute on function create_business_with_owner(text, text, text, text, text, text) to authenticated;
+
+revoke execute on function invite_business_member(uuid, uuid, business_role) from public;
+revoke execute on function invite_business_member(uuid, uuid, business_role) from anon;
+grant execute on function invite_business_member(uuid, uuid, business_role) to authenticated;
+
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) from public;
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) from anon;
+grant execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) to authenticated;
+
+-- F3 also flagged that invite_business_member (unlike create_business_with_owner
+-- and complete_sale) has no explicit `auth.uid() is null` guard -- it only
+-- rejects an anonymous caller implicitly, because member_role(p_business_id)
+-- happens to return null when auth.uid() is null, which then fails the
+-- role-rank check below. That is correct today, but it is more fragile than
+-- an explicit guard and inconsistent with every other RPC's style. This
+-- redeclares the function with the same guard added at the top and every
+-- other line identical to 0016's original -- no authorization or business
+-- rule changes.
+create or replace function invite_business_member(
+  p_business_id uuid,
+  p_user_id uuid,
+  p_role business_role
+)
+returns business_members
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_role business_role;
+  v_member business_members;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  v_caller_role := member_role(p_business_id);
+
+  if v_caller_role is null or role_rank(v_caller_role) < role_rank('ADMIN') then
+    raise exception 'Insufficient permission to add members';
+  end if;
+
+  if p_role in ('OWNER', 'ADMIN') and v_caller_role <> 'OWNER' then
+    raise exception 'Only an owner can assign this role';
+  end if;
+
+  if not exists (select 1 from profiles where id = p_user_id) then
+    raise exception 'No such user';
+  end if;
+
+  insert into business_members (business_id, user_id, role, active)
+  values (p_business_id, p_user_id, p_role, true)
+  on conflict (business_id, user_id) do update
+    set role = excluded.role, active = true
+  returning * into v_member;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'PERMISSION_CHANGE', 'business_member', v_member.id, to_jsonb(v_member));
+
+  return v_member;
+end;
+$$;
+
+-- CREATE OR REPLACE preserves the function's existing GRANT/REVOKE state as
+-- long as its signature is unchanged (it is, here), but the grant is
+-- restated below for clarity and to be self-contained regardless of
+-- migration-application order.
+revoke execute on function invite_business_member(uuid, uuid, business_role) from public;
+revoke execute on function invite_business_member(uuid, uuid, business_role) from anon;
+grant execute on function invite_business_member(uuid, uuid, business_role) to authenticated;
+
+-- ===== 0022_protect_financial_snapshot_columns.sql =====
+-- Day 6 security audit (F1): sales_update, payments_update, and
+-- commissions_update (0015_rls_policies.sql) correctly gate WHO may update
+-- a row (MANAGER+/ADMIN+), but RLS is row-level, not column-level -- none
+-- of the three policies restrict WHICH columns a permitted caller may
+-- change. That means a MANAGER+/ADMIN+ session used directly against the
+-- REST API (not through this app, which never does this -- confirmed no
+-- repository performs such an update) could rewrite total_amount,
+-- paid_amount, commission_amount, staff attribution, or even
+-- idempotency_key on an existing row, bypassing every guarantee
+-- complete_sale established at creation time.
+--
+-- This does not touch the RLS policies themselves (no policy is weakened
+-- or replaced) and does not touch complete_sale, since complete_sale only
+-- ever INSERTs into these three tables, never UPDATEs an existing row --
+-- confirmed by inspection of 0017_pos_checkout.sql. These triggers fire on
+-- UPDATE only, so the Day 2 checkout path is entirely unaffected.
+--
+-- Each trigger blocks changes to the server-computed/snapshot/attribution
+-- columns and explicitly allows the columns that represent a legitimate
+-- status/void-metadata transition (the model this project's own plan
+-- describes for the not-yet-built void_sale flow: "status update +
+-- inventory reversal + commission reversal + audit log", i.e. state
+-- transitions on existing rows, not raw field edits). This does not
+-- implement or design that refund/void workflow -- it only ensures that
+-- whenever it lands, it (and today's role-gated status changes) can still
+-- update `status`/void metadata while financial history stays immutable.
+
+create or replace function protect_sales_snapshot_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.business_id is distinct from old.business_id
+     or new.branch_id is distinct from old.branch_id
+     or new.customer_id is distinct from old.customer_id
+     or new.cashier_id is distinct from old.cashier_id
+     or new.receipt_number is distinct from old.receipt_number
+     or new.subtotal is distinct from old.subtotal
+     or new.discount_amount is distinct from old.discount_amount
+     or new.tax_amount is distinct from old.tax_amount
+     or new.total_amount is distinct from old.total_amount
+     or new.paid_amount is distinct from old.paid_amount
+     or new.change_amount is distinct from old.change_amount
+     or new.idempotency_key is distinct from old.idempotency_key
+     or new.created_at is distinct from old.created_at
+  then
+    raise exception 'Cannot modify financial, attribution, or identity fields on an existing sale -- only status and void metadata may be updated';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger sales_protect_snapshot_columns
+  before update on sales
+  for each row execute function protect_sales_snapshot_columns();
+
+create or replace function protect_payments_snapshot_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.business_id is distinct from old.business_id
+     or new.sale_id is distinct from old.sale_id
+     or new.payment_method is distinct from old.payment_method
+     or new.amount is distinct from old.amount
+     or new.reference is distinct from old.reference
+     or new.created_by is distinct from old.created_by
+     or new.created_at is distinct from old.created_at
+  then
+    raise exception 'Cannot modify financial or identity fields on an existing payment -- only status may be updated';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger payments_protect_snapshot_columns
+  before update on payments
+  for each row execute function protect_payments_snapshot_columns();
+
+create or replace function protect_commissions_snapshot_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.business_id is distinct from old.business_id
+     or new.sale_id is distinct from old.sale_id
+     or new.sale_item_id is distinct from old.sale_item_id
+     or new.staff_id is distinct from old.staff_id
+     or new.commission_type is distinct from old.commission_type
+     or new.commission_rate is distinct from old.commission_rate
+     or new.commission_amount is distinct from old.commission_amount
+     or new.created_at is distinct from old.created_at
+  then
+    raise exception 'Cannot modify commission amount, rate, or attribution on an existing commission -- only status may be updated';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger commissions_protect_snapshot_columns
+  before update on commissions
+  for each row execute function protect_commissions_snapshot_columns();
+
+-- ===== 0023_complete_sale_customer_integrity.sql =====
+-- Day 6 security audit (F2 + F4). Grouped in one migration because both
+-- require a full CREATE OR REPLACE of complete_sale's body -- splitting
+-- them would force one migration to silently restate the other's change,
+-- which is a worse audit trail than one migration containing both.
+--
+-- F2: customers.total_spent/visit_count/last_visit_at are running totals
+-- complete_sale maintains (0017_pos_checkout.sql:184-189), but
+-- customers_update RLS (0015_rls_policies.sql) is CASHIER+ with no column
+-- restriction, so any CASHIER+ session against the raw REST API could
+-- overwrite these three columns directly. They cannot simply be
+-- always-blocked-on-UPDATE, because complete_sale's own legitimate update
+-- must still work.
+--
+-- Mechanism: complete_sale sets a transaction-local flag
+-- (set_config(..., is_local => true)) immediately before its customer-stats
+-- UPDATE; a new BEFORE UPDATE trigger on customers only allows changes to
+-- those three columns while that flag is set. This is safe because the
+-- client cannot establish the same trusted context: set_config is a
+-- pg_catalog builtin, never exposed as a PostgREST RPC endpoint (PostgREST
+-- only exposes functions from the public schema), and no REST table
+-- operation (PATCH/POST/etc.) can execute arbitrary SQL ahead of itself --
+-- a direct client UPDATE to /customers always runs in its own transaction
+-- where the flag was never set, so it is rejected. is_local => true means
+-- the flag automatically reverts at the end of complete_sale's own
+-- transaction (one PostgREST request = one transaction), so nothing
+-- leaks between requests.
+--
+-- F4: p_customer_id was inserted into sales.customer_id with no check that
+-- the customer belongs to p_business_id -- unlike service_id, product_id,
+-- and staff_id in the same function, which are all re-validated. Adds the
+-- same style of check used for staff_id.
+--
+-- Every other line of complete_sale is unchanged from 0017. No checkout
+-- calculation, idempotency behavior, or existing authorization rule is
+-- altered.
+
+create or replace function protect_customer_lifetime_metrics()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (new.total_spent is distinct from old.total_spent
+      or new.visit_count is distinct from old.visit_count
+      or new.last_visit_at is distinct from old.last_visit_at)
+     and coalesce(current_setting('app.trusted_customer_stats_update', true), 'false') <> 'true'
+  then
+    raise exception 'total_spent, visit_count, and last_visit_at can only be updated by complete_sale';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger customers_protect_lifetime_metrics
+  before update on customers
+  for each row execute function protect_customer_lifetime_metrics();
+
+create or replace function complete_sale(
+  p_business_id uuid,
+  p_branch_id uuid,
+  p_customer_id uuid,
+  p_items jsonb,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_payment_method payment_method_enum,
+  p_paid_amount numeric,
+  p_idempotency_key text
+)
+returns sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale sales;
+  v_existing sales;
+  v_item jsonb;
+  v_subtotal numeric(14,2) := 0;
+  v_total numeric(14,2);
+  v_change numeric(14,2);
+  v_payment_status payment_status_enum;
+  v_sale_item_id uuid;
+  v_item_subtotal numeric(14,2);
+  v_service_commission_type commission_kind;
+  v_service_commission_value numeric(14,2);
+  v_commission_amount numeric(14,2);
+  v_product_stock integer;
+  v_staff_valid boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to record a sale';
+  end if;
+
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'A sale must have at least one item';
+  end if;
+
+  if p_idempotency_key is not null then
+    select * into v_existing from sales
+      where business_id = p_business_id and idempotency_key = p_idempotency_key;
+    if found then
+      return v_existing;
+    end if;
+  end if;
+
+  if p_customer_id is not null and not exists (
+    select 1 from customers where id = p_customer_id and business_id = p_business_id
+  ) then
+    raise exception 'Customer not found in this business';
+  end if;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_subtotal := v_subtotal +
+      (coalesce((v_item->>'unit_price')::numeric, 0) * coalesce((v_item->>'quantity')::int, 1))
+      - coalesce((v_item->>'discount_amount')::numeric, 0);
+  end loop;
+
+  if v_subtotal < 0 then
+    raise exception 'Invalid sale: subtotal cannot be negative';
+  end if;
+
+  v_total := v_subtotal - coalesce(p_discount_amount, 0) + coalesce(p_tax_amount, 0);
+  if v_total < 0 then
+    raise exception 'Invalid sale: total cannot be negative';
+  end if;
+
+  if coalesce(p_paid_amount, 0) >= v_total then
+    v_payment_status := 'COMPLETED';
+    v_change := p_paid_amount - v_total;
+  else
+    v_payment_status := 'PENDING';
+    v_change := 0;
+  end if;
+
+  insert into sales (
+    business_id, branch_id, customer_id, cashier_id,
+    subtotal, discount_amount, tax_amount, total_amount,
+    paid_amount, change_amount, status, payment_status, idempotency_key
+  ) values (
+    p_business_id, p_branch_id, p_customer_id, auth.uid(),
+    v_subtotal, coalesce(p_discount_amount, 0), coalesce(p_tax_amount, 0), v_total,
+    coalesce(p_paid_amount, 0), v_change, 'COMPLETED', v_payment_status, p_idempotency_key
+  ) returning * into v_sale;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_item_subtotal :=
+      (coalesce((v_item->>'unit_price')::numeric, 0) * coalesce((v_item->>'quantity')::int, 1))
+      - coalesce((v_item->>'discount_amount')::numeric, 0);
+
+    v_commission_amount := 0;
+    v_service_commission_type := null;
+    v_service_commission_value := null;
+
+    v_staff_valid := false;
+    if (v_item->>'staff_id') is not null then
+      v_staff_valid := exists (
+        select 1 from business_members
+        where business_id = p_business_id
+          and user_id = (v_item->>'staff_id')::uuid
+          and active = true
+      );
+    end if;
+
+    if (v_item->>'item_type') = 'SERVICE' then
+      select commission_type, commission_value
+        into v_service_commission_type, v_service_commission_value
+        from services where id = (v_item->>'service_id')::uuid and business_id = p_business_id;
+
+      if v_staff_valid and v_service_commission_type is not null then
+        if v_service_commission_type = 'PERCENTAGE' then
+          v_commission_amount := round(v_item_subtotal * coalesce(v_service_commission_value, 0) / 100, 2);
+        else
+          v_commission_amount := coalesce(v_service_commission_value, 0);
+        end if;
+      end if;
+    end if;
+
+    insert into sale_items (
+      business_id, sale_id, item_type, service_id, product_id, staff_id,
+      name_snapshot, quantity, unit_price, discount_amount, subtotal, commission_amount
+    ) values (
+      p_business_id, v_sale.id, (v_item->>'item_type')::sale_item_kind,
+      nullif(v_item->>'service_id', '')::uuid, nullif(v_item->>'product_id', '')::uuid,
+      case when v_staff_valid then (v_item->>'staff_id')::uuid else null end,
+      v_item->>'name_snapshot', coalesce((v_item->>'quantity')::int, 1),
+      coalesce((v_item->>'unit_price')::numeric, 0), coalesce((v_item->>'discount_amount')::numeric, 0),
+      v_item_subtotal, v_commission_amount
+    ) returning id into v_sale_item_id;
+
+    if (v_item->>'item_type') = 'PRODUCT' then
+      select stock_quantity into v_product_stock
+        from products where id = (v_item->>'product_id')::uuid and business_id = p_business_id
+        for update;
+
+      if v_product_stock is null then
+        raise exception 'Product not found';
+      end if;
+      if v_product_stock < coalesce((v_item->>'quantity')::int, 1) then
+        raise exception 'Insufficient stock for %', (v_item->>'name_snapshot');
+      end if;
+
+      update products set stock_quantity = stock_quantity - coalesce((v_item->>'quantity')::int, 1)
+        where id = (v_item->>'product_id')::uuid;
+
+      insert into inventory_movements (
+        business_id, branch_id, product_id, movement_type, quantity,
+        reference_type, reference_id, created_by
+      ) values (
+        p_business_id, p_branch_id, (v_item->>'product_id')::uuid, 'SALE',
+        -coalesce((v_item->>'quantity')::int, 1), 'sale', v_sale.id, auth.uid()
+      );
+    end if;
+
+    if v_commission_amount > 0 and v_staff_valid then
+      insert into commissions (
+        business_id, sale_id, sale_item_id, staff_id, commission_type,
+        commission_rate, commission_amount, status
+      ) values (
+        p_business_id, v_sale.id, v_sale_item_id, (v_item->>'staff_id')::uuid,
+        v_service_commission_type, coalesce(v_service_commission_value, 0), v_commission_amount, 'PENDING'
+      );
+    end if;
+  end loop;
+
+  insert into payments (business_id, sale_id, payment_method, amount, status, created_by)
+  values (p_business_id, v_sale.id, p_payment_method, coalesce(p_paid_amount, 0), v_payment_status, auth.uid());
+
+  if p_customer_id is not null then
+    perform set_config('app.trusted_customer_stats_update', 'true', true);
+    update customers set
+      total_spent = total_spent + v_total,
+      visit_count = visit_count + 1,
+      last_visit_at = now()
+    where id = p_customer_id and business_id = p_business_id;
+  end if;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'PAYMENT', 'sale', v_sale.id, to_jsonb(v_sale));
+
+  return v_sale;
+end;
+$$;
+
+-- CREATE OR REPLACE preserves the existing GRANT/REVOKE state set by 0021
+-- (same signature, so no privilege reset occurs); restated here for
+-- clarity and to be self-contained regardless of migration-application
+-- order.
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) from public;
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) from anon;
+grant execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) to authenticated;
+
+-- ===== 0024_complete_sale_price_and_payment_integrity.sql =====
+-- Day 7 audit (F7-1 CRITICAL, F7-2 HIGH, F7-3 MEDIUM). Redeclares complete_sale
+-- with three fixes; every other authorization/validation rule from 0017/0023
+-- is preserved verbatim (auth.uid() guard, has_role_at_least('CASHIER'),
+-- service_id/product_id/staff_id/customer_id tenant validation, the
+-- inventory FOR UPDATE lock, the customer-stats trusted-context flag from
+-- 0023, and the SECURITY DEFINER/search_path/EXECUTE privilege hardening
+-- from 0021 -- none of that is touched here).
+--
+-- F7-1: unit_price was previously taken verbatim from the client-supplied
+-- p_items, with no cross-check against services.price / products.
+-- selling_price. That let a CASHIER-rank caller (a real, authenticated
+-- session -- not an ACL bypass) forge an arbitrary price, which fed
+-- directly into sale_items.unit_price/subtotal, sales.total_amount, AND
+-- commission_amount (commission is computed off the item subtotal). Fixed
+-- by resolving the authoritative catalog price server-side for every line
+-- and using ONLY that value for every downstream calculation -- the
+-- client's unit_price field is now read from p_items only for backward
+-- wire-compatibility and is never used for anything.
+--
+-- Implementation note: complete_sale already needed two passes over
+-- p_items (pass 1 computes the sale's own subtotal/total before the sales
+-- row can be inserted, since sale_items.sale_id requires that row to
+-- already exist; pass 2 does the per-item inserts/stock deduction/
+-- commission). To avoid resolving -- and therefore querying -- the price
+-- twice (which could theoretically observe two different prices if a
+-- price edit landed between the two passes), pass 1 now resolves each
+-- item exactly once into an in-memory v_resolved_items array (locking
+-- product rows with FOR UPDATE at that point, held for the rest of the
+-- transaction) and pass 2 consumes that array instead of re-querying
+-- services/products. Pass 2 still re-reads products.stock_quantity
+-- immediately before deducting it (the lock from pass 1 is already held,
+-- so this is an uncontended, cheap read) and still performs the
+-- check-then-deduct for stock sufficiency in that same second pass, in
+-- the same order as before -- this preserves the original behavior for a
+-- cart that references the same product in two separate lines (each
+-- line's deduction is visible to the next line's check within the same
+-- transaction, exactly as pre-fix).
+--
+-- F7-2: p_paid_amount was only used to pick between payment_status
+-- COMPLETED/PENDING; sales.status was hardcoded to 'COMPLETED' either way,
+-- so a sale with $0 paid was fully processed (inventory deducted,
+-- commission accrued, customer stats updated) with no distinguishing
+-- marker beyond an easy-to-miss payment_status column. Per explicit
+-- product decision (no deferred/credit-payment system is being
+-- introduced), payment must now cover the total or the entire sale is
+-- rejected before any persistence: NULL, negative, or amount < v_total
+-- are all rejected with a clear business error, computed only after
+-- v_total itself is computed from authoritative prices. Overpayment
+-- (change) behavior is unchanged.
+--
+-- F7-3: p_idempotency_key was only checked for duplicates when NOT NULL --
+-- a caller could omit it entirely and bypass replay protection altogether.
+-- It is now mandatory; NULL is rejected immediately. The existing
+-- unique(business_id, idempotency_key) constraint (0007_sales.sql) needs
+-- no change: it already enforces uniqueness for every non-null key, and
+-- NULL can no longer reach the INSERT.
+create or replace function complete_sale(
+  p_business_id uuid,
+  p_branch_id uuid,
+  p_customer_id uuid,
+  p_items jsonb,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_payment_method payment_method_enum,
+  p_paid_amount numeric,
+  p_idempotency_key text
+)
+returns sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale sales;
+  v_existing sales;
+  v_item jsonb;
+  v_resolved_items jsonb := '[]'::jsonb;
+  v_subtotal numeric(14,2) := 0;
+  v_total numeric(14,2);
+  v_change numeric(14,2);
+  v_payment_status payment_status_enum;
+  v_sale_item_id uuid;
+  v_item_subtotal numeric(14,2);
+  v_unit_price numeric(14,2);
+  v_service_commission_type commission_kind;
+  v_service_commission_value numeric(14,2);
+  v_commission_amount numeric(14,2);
+  v_product_stock integer;
+  v_staff_valid boolean;
+  v_quantity integer;
+  v_discount numeric(14,2);
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to record a sale';
+  end if;
+
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'A sale must have at least one item';
+  end if;
+
+  if p_idempotency_key is null then
+    raise exception 'Idempotency key is required';
+  end if;
+
+  select * into v_existing from sales
+    where business_id = p_business_id and idempotency_key = p_idempotency_key;
+  if found then
+    return v_existing;
+  end if;
+
+  if p_customer_id is not null and not exists (
+    select 1 from customers where id = p_customer_id and business_id = p_business_id
+  ) then
+    raise exception 'Customer not found in this business';
+  end if;
+
+  -- Pass 1: resolve each item's authoritative catalog price exactly once
+  -- (never the client-supplied unit_price) and accumulate the sale's
+  -- subtotal from those authoritative values.
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_quantity := coalesce((v_item->>'quantity')::int, 1);
+    v_discount := coalesce((v_item->>'discount_amount')::numeric, 0);
+    v_service_commission_type := null;
+    v_service_commission_value := null;
+
+    if (v_item->>'item_type') = 'SERVICE' then
+      select price, commission_type, commission_value
+        into v_unit_price, v_service_commission_type, v_service_commission_value
+        from services where id = (v_item->>'service_id')::uuid and business_id = p_business_id;
+
+      if v_unit_price is null then
+        raise exception 'Service not found in this business';
+      end if;
+    elsif (v_item->>'item_type') = 'PRODUCT' then
+      select selling_price into v_unit_price
+        from products where id = (v_item->>'product_id')::uuid and business_id = p_business_id
+        for update;
+
+      if v_unit_price is null then
+        raise exception 'Product not found in this business';
+      end if;
+    else
+      raise exception 'Invalid item type';
+    end if;
+
+    v_item_subtotal := (v_unit_price * v_quantity) - v_discount;
+    if v_item_subtotal < 0 then
+      raise exception 'Discount cannot exceed the item subtotal';
+    end if;
+
+    v_subtotal := v_subtotal + v_item_subtotal;
+
+    v_resolved_items := v_resolved_items || jsonb_build_object(
+      'item_type', v_item->>'item_type',
+      'service_id', nullif(v_item->>'service_id', ''),
+      'product_id', nullif(v_item->>'product_id', ''),
+      'staff_id', v_item->>'staff_id',
+      'name_snapshot', v_item->>'name_snapshot',
+      'quantity', v_quantity,
+      'unit_price', v_unit_price,
+      'discount_amount', v_discount,
+      'item_subtotal', v_item_subtotal,
+      'commission_type', v_service_commission_type,
+      'commission_value', v_service_commission_value
+    );
+  end loop;
+
+  if v_subtotal < 0 then
+    raise exception 'Invalid sale: subtotal cannot be negative';
+  end if;
+
+  v_total := v_subtotal - coalesce(p_discount_amount, 0) + coalesce(p_tax_amount, 0);
+  if v_total < 0 then
+    raise exception 'Invalid sale: total cannot be negative';
+  end if;
+
+  if p_paid_amount is null then
+    raise exception 'Payment amount is required';
+  elsif p_paid_amount < 0 then
+    raise exception 'Payment amount cannot be negative';
+  elsif p_paid_amount < v_total then
+    raise exception 'Payment amount cannot be less than the sale total';
+  end if;
+
+  v_payment_status := 'COMPLETED';
+  v_change := p_paid_amount - v_total;
+
+  insert into sales (
+    business_id, branch_id, customer_id, cashier_id,
+    subtotal, discount_amount, tax_amount, total_amount,
+    paid_amount, change_amount, status, payment_status, idempotency_key
+  ) values (
+    p_business_id, p_branch_id, p_customer_id, auth.uid(),
+    v_subtotal, coalesce(p_discount_amount, 0), coalesce(p_tax_amount, 0), v_total,
+    p_paid_amount, v_change, 'COMPLETED', v_payment_status, p_idempotency_key
+  ) returning * into v_sale;
+
+  -- Pass 2: persist each line using the already-resolved authoritative
+  -- price/subtotal from pass 1 -- no re-query of services/products for
+  -- price. Stock sufficiency is still checked and deducted here, in the
+  -- same order as before the fix, so two lines referencing the same
+  -- product still interact correctly (the lock was already taken in
+  -- pass 1, so this re-read is immediate, not blocking).
+  for v_item in select * from jsonb_array_elements(v_resolved_items)
+  loop
+    v_staff_valid := false;
+    if (v_item->>'staff_id') is not null then
+      v_staff_valid := exists (
+        select 1 from business_members
+        where business_id = p_business_id
+          and user_id = (v_item->>'staff_id')::uuid
+          and active = true
+      );
+    end if;
+
+    v_commission_amount := 0;
+    if (v_item->>'item_type') = 'SERVICE' and v_staff_valid and (v_item->>'commission_type') is not null then
+      if (v_item->>'commission_type') = 'PERCENTAGE' then
+        v_commission_amount := round(
+          (v_item->>'item_subtotal')::numeric * coalesce((v_item->>'commission_value')::numeric, 0) / 100, 2
+        );
+      else
+        v_commission_amount := coalesce((v_item->>'commission_value')::numeric, 0);
+      end if;
+    end if;
+
+    insert into sale_items (
+      business_id, sale_id, item_type, service_id, product_id, staff_id,
+      name_snapshot, quantity, unit_price, discount_amount, subtotal, commission_amount
+    ) values (
+      p_business_id, v_sale.id, (v_item->>'item_type')::sale_item_kind,
+      nullif(v_item->>'service_id', '')::uuid, nullif(v_item->>'product_id', '')::uuid,
+      case when v_staff_valid then (v_item->>'staff_id')::uuid else null end,
+      v_item->>'name_snapshot', (v_item->>'quantity')::int,
+      (v_item->>'unit_price')::numeric, (v_item->>'discount_amount')::numeric,
+      (v_item->>'item_subtotal')::numeric, v_commission_amount
+    ) returning id into v_sale_item_id;
+
+    if (v_item->>'item_type') = 'PRODUCT' then
+      select stock_quantity into v_product_stock
+        from products where id = (v_item->>'product_id')::uuid
+        for update;
+
+      if v_product_stock < (v_item->>'quantity')::int then
+        raise exception 'Insufficient stock for %', (v_item->>'name_snapshot');
+      end if;
+
+      update products set stock_quantity = stock_quantity - (v_item->>'quantity')::int
+        where id = (v_item->>'product_id')::uuid;
+
+      insert into inventory_movements (
+        business_id, branch_id, product_id, movement_type, quantity,
+        reference_type, reference_id, created_by
+      ) values (
+        p_business_id, p_branch_id, (v_item->>'product_id')::uuid, 'SALE',
+        -(v_item->>'quantity')::int, 'sale', v_sale.id, auth.uid()
+      );
+    end if;
+
+    if v_commission_amount > 0 and v_staff_valid then
+      insert into commissions (
+        business_id, sale_id, sale_item_id, staff_id, commission_type,
+        commission_rate, commission_amount, status
+      ) values (
+        p_business_id, v_sale.id, v_sale_item_id, (v_item->>'staff_id')::uuid,
+        (v_item->>'commission_type')::commission_kind, coalesce((v_item->>'commission_value')::numeric, 0),
+        v_commission_amount, 'PENDING'
+      );
+    end if;
+  end loop;
+
+  insert into payments (business_id, sale_id, payment_method, amount, status, created_by)
+  values (p_business_id, v_sale.id, p_payment_method, p_paid_amount, v_payment_status, auth.uid());
+
+  if p_customer_id is not null then
+    perform set_config('app.trusted_customer_stats_update', 'true', true);
+    update customers set
+      total_spent = total_spent + v_total,
+      visit_count = visit_count + 1,
+      last_visit_at = now()
+    where id = p_customer_id and business_id = p_business_id;
+  end if;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'PAYMENT', 'sale', v_sale.id, to_jsonb(v_sale));
+
+  return v_sale;
+end;
+$$;
+
+-- CREATE OR REPLACE preserves the existing GRANT/REVOKE state set by 0021
+-- (same signature, so no privilege reset occurs); restated here for
+-- clarity and to be self-contained regardless of migration-application
+-- order. anon/public EXECUTE remain revoked; only authenticated retains
+-- access.
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) from public;
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) from anon;
+grant execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+) to authenticated;
+
+-- ===== 0025_revoke_direct_financial_insert_paths.sql =====
+-- Day 8 audit (F8-1 CRITICAL, F8-2 HIGH, F8-3 HIGH, F8-4 MEDIUM, F8-5
+-- MEDIUM): sales_insert, sale_items_insert, payments_insert,
+-- commissions_insert, and inventory_movements_insert (0015_rls_policies.sql)
+-- were all role-gated only ("has_role_at_least(business_id, X)"), with no
+-- validation of the values being inserted or their relationship to other
+-- rows. That let an authenticated CASHIER+/ADMIN+/MANAGER+ session bypass
+-- complete_sale/adjust_stock entirely via a direct REST INSERT --
+-- fabricating an arbitrary sale with no items, injecting a retroactive
+-- line item into an existing (even closed) sale with a forged price,
+-- fabricating a commission payout unconnected to any real sale, inserting
+-- a phantom payment, or fabricating an inventory ledger entry that never
+-- moved real stock. This defeated every integrity control Day 7 built
+-- into complete_sale, since that function is only one path into these
+-- tables -- the tables themselves remained directly writable.
+--
+-- Fix: remove the client-facing INSERT policy on all five tables
+-- entirely, so no role satisfies any INSERT policy on them and Postgres's
+-- default-deny applies. This is the same, already-proven-safe pattern
+-- this project already uses for `businesses` (see 0015_rls_policies.sql:
+-- "No INSERT policy: businesses are only created via the
+-- create_business_with_owner() SECURITY DEFINER function") and for the
+-- initial `business_members` OWNER row -- complete_sale and adjust_stock
+-- are SECURITY DEFINER functions owned by a role that bypasses RLS for
+-- its own writes (the same reason create_business_with_owner has always
+-- been able to insert into `businesses` despite no policy ever existing
+-- there), so removing these policies does not require touching either
+-- function and does not change their behavior for a legitimate caller in
+-- any way.
+--
+-- SELECT/UPDATE/DELETE policies on all five tables are completely
+-- untouched: sales_select/sales_update, sale_items_select (no
+-- UPDATE/DELETE policy existed or exists), payments_select/
+-- payments_update, commissions_select/commissions_update,
+-- inventory_movements_select (no UPDATE/DELETE policy existed or exists)
+-- all remain exactly as they were. The Day 6 column-protection triggers
+-- on sales/payments/commissions (0022_protect_financial_snapshot_columns.sql)
+-- are BEFORE UPDATE triggers and are unaffected either way.
+--
+-- Intended end state:
+--   direct authenticated REST INSERT -> sales/sale_items/payments/
+--     commissions/inventory_movements: DENIED for every role
+--   complete_sale() -> still succeeds (inserts all five tables internally)
+--   adjust_stock() -> still succeeds (inserts inventory_movements internally)
+drop policy sales_insert on sales;
+drop policy sale_items_insert on sale_items;
+drop policy payments_insert on payments;
+drop policy inventory_movements_insert on inventory_movements;
+drop policy commissions_insert on commissions;
+
 
 commit;
