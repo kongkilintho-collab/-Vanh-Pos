@@ -36,6 +36,14 @@ class _CartPanelState extends ConsumerState<CartPanel> {
     final membership = ref.read(currentMembershipProvider);
     if (membership == null || cart.isEmpty || _submitting) return;
 
+    // Immediate UX feedback only -- complete_sale enforces this
+    // server-side regardless (see 0024_complete_sale_price_and_payment_integrity.sql),
+    // so this is not the security boundary, just an earlier, friendlier error.
+    if (cart.paidAmount < cart.total) {
+      setState(() => _error = 'Payment amount cannot be less than the sale total.');
+      return;
+    }
+
     setState(() {
       _submitting = true;
       _error = null;
