@@ -50,4 +50,34 @@ class BusinessRepository {
 
     return Business.fromJson(row as Map<String, dynamic>);
   }
+
+  /// Calls the update_business_settings RPC (see
+  /// supabase/migrations/0028_business_settings_rpc.sql), which atomically
+  /// updates the business row and writes a SETTINGS_CHANGE audit_logs row.
+  /// This is the only sanctioned write path to businesses -- direct table
+  /// UPDATEs are no longer permitted by RLS as of that migration.
+  Future<Business> updateSettings({
+    required String businessId,
+    required String name,
+    String? phone,
+    String? email,
+    String? address,
+    required String currency,
+    required bool taxEnabled,
+    required double taxRate,
+    String? logoUrl,
+  }) async {
+    final row = await _client.rpc('update_business_settings', params: {
+      'p_business_id': businessId,
+      'p_name': name,
+      'p_phone': phone,
+      'p_email': email,
+      'p_address': address,
+      'p_currency': currency,
+      'p_tax_enabled': taxEnabled,
+      'p_tax_rate': taxRate,
+      'p_logo_url': logoUrl,
+    });
+    return Business.fromJson(row as Map<String, dynamic>);
+  }
 }

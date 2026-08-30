@@ -18,6 +18,7 @@ import '../../reports/presentation/dashboard_overview_screen.dart';
 import '../../reports/presentation/reports_screen.dart';
 import '../../sales/presentation/sales_screen.dart';
 import '../../services/presentation/services_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 import '../../staff/presentation/staff_screen.dart';
 
 class _NavItem {
@@ -47,7 +48,7 @@ const _navItems = [
   _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin, implemented: true),
   _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.history_outlined, label: 'Audit Log', minRole: BusinessRole.admin, implemented: true),
-  _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin),
+  _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin, implemented: true),
 ];
 
 class DashboardShell extends ConsumerStatefulWidget {
@@ -131,6 +132,8 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const ReportsScreen();
       case 'Audit Log':
         return const AuditLogScreen();
+      case 'Settings':
+        return const SettingsScreen();
       default:
         return _OverviewContent(selectedLabel: item.label, implemented: item.implemented);
     }
