@@ -5,6 +5,7 @@ import '../../../shared/models/business_role.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
+import '../../audit/presentation/audit_log_screen.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../../commissions/presentation/commissions_screen.dart';
@@ -45,6 +46,7 @@ const _navItems = [
   _NavItem(icon: Icons.percent_outlined, label: 'Commissions', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin, implemented: true),
   _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager, implemented: true),
+  _NavItem(icon: Icons.history_outlined, label: 'Audit Log', minRole: BusinessRole.admin, implemented: true),
   _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin),
 ];
 
@@ -127,6 +129,8 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const DashboardOverviewScreen();
       case 'Reports':
         return const ReportsScreen();
+      case 'Audit Log':
+        return const AuditLogScreen();
       default:
         return _OverviewContent(selectedLabel: item.label, implemented: item.implemented);
     }

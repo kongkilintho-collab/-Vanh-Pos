@@ -57,9 +57,9 @@ class _StaffTile extends ConsumerWidget {
 
   const _StaffTile({required this.member, required this.myRole});
 
-  // Purely a UX hint (hide/disable controls that RLS would reject anyway) --
-  // never the actual security boundary, which is business_members_update's
-  // RLS policy.
+  // Purely a UX hint (hide/disable controls the backend would reject
+  // anyway) -- never the actual security boundary, which is the
+  // set_member_role/set_member_active RPCs (0027_audit_log_coverage.sql).
   bool get _canEdit {
     if (!myRole.isAtLeast(BusinessRole.admin)) return false;
     if (member.role == BusinessRole.owner && myRole != BusinessRole.owner) return false;
@@ -117,9 +117,8 @@ class _ManageMemberSheetState extends ConsumerState<_ManageMemberSheet> {
 
   List<BusinessRole> get _assignableRoles {
     // Only an OWNER may grant OWNER/ADMIN -- mirrors invite_business_member
-    // and the business_members_update RLS policy exactly. Enforced there
-    // regardless; this just avoids offering an option that would be
-    // rejected.
+    // and set_member_role's own guard exactly. Enforced there regardless;
+    // this just avoids offering an option that would be rejected.
     if (widget.myRole == BusinessRole.owner) return BusinessRole.values;
     return BusinessRole.values.where((r) => r != BusinessRole.owner && r != BusinessRole.admin).toList();
   }

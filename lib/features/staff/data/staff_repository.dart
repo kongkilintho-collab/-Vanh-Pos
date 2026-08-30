@@ -2,12 +2,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/models/staff_member.dart';
 
-/// Staff management. Every write here goes through either the existing
-/// invite_business_member RPC or a direct business_members update/select --
-/// both already RLS/escalation-guard protected (0015_rls_policies.sql,
-/// 0016_business_onboarding.sql). This class introduces no new RPC and no
-/// new write path; find_invitable_user_id (0018/0019) is the only new
-/// backend object it calls, and it is a lookup, not a write.
+/// Staff management. Every write here goes through a SECURITY DEFINER RPC
+/// (invite_business_member, set_member_role, set_member_active -- see
+/// 0016_business_onboarding.sql and 0027_audit_log_coverage.sql). Role and
+/// active-state changes used to be direct `business_members` UPDATEs;
+/// they were moved to RPCs in F9-3 so every change writes a
+/// PERMISSION_CHANGE audit_logs row atomically -- business_members_update
+/// no longer exists, so a direct client UPDATE can no longer reproduce
+/// these changes while skipping the audit trail.
 ///
 /// Deliberately independent from PosRepository.listStaff() (same query
 /// technique, not a shared class) so nothing here can affect the Day 2
@@ -55,21 +57,25 @@ class StaffRepository {
     });
   }
 
-  /// Direct table update -- business_members_update RLS already enforces
-  /// ADMIN+ and the OWNER-row/escalation guards (see 0015_rls_policies.sql).
+  /// Calls the set_member_role RPC (0027_audit_log_coverage.sql), which
+  /// enforces the same ADMIN+/OWNER-row/escalation rules
+  /// business_members_update used to and writes one PERMISSION_CHANGE
+  /// audit_logs row atomically with the role change.
   Future<void> updateRole({required String businessId, required String userId, required String role}) async {
-    await _client
-        .from('business_members')
-        .update({'role': role})
-        .eq('business_id', businessId)
-        .eq('user_id', userId);
+    await _client.rpc('set_member_role', params: {
+      'p_business_id': businessId,
+      'p_target_user_id': userId,
+      'p_role': role,
+    });
   }
 
+  /// Calls the set_member_active RPC (0027_audit_log_coverage.sql) --
+  /// same rationale as [updateRole].
   Future<void> setActive({required String businessId, required String userId, required bool active}) async {
-    await _client
-        .from('business_members')
-        .update({'active': active})
-        .eq('business_id', businessId)
-        .eq('user_id', userId);
+    await _client.rpc('set_member_active', params: {
+      'p_business_id': businessId,
+      'p_target_user_id': userId,
+      'p_active': active,
+    });
   }
 }
