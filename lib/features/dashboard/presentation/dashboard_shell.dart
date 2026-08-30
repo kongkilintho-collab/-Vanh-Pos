@@ -15,6 +15,7 @@ import '../../pos/presentation/pos_screen.dart';
 import '../../products/presentation/products_screen.dart';
 import '../../reports/presentation/dashboard_overview_screen.dart';
 import '../../reports/presentation/reports_screen.dart';
+import '../../sales/presentation/sales_screen.dart';
 import '../../services/presentation/services_screen.dart';
 import '../../staff/presentation/staff_screen.dart';
 
@@ -35,6 +36,7 @@ class _NavItem {
 const _navItems = [
   _NavItem(icon: Icons.dashboard_outlined, label: 'Overview', implemented: true),
   _NavItem(icon: Icons.point_of_sale_outlined, label: 'POS', minRole: BusinessRole.cashier, implemented: true),
+  _NavItem(icon: Icons.receipt_outlined, label: 'Sales', minRole: BusinessRole.cashier, implemented: true),
   _NavItem(icon: Icons.groups_outlined, label: 'Customers', minRole: BusinessRole.cashier, implemented: true),
   _NavItem(icon: Icons.spa_outlined, label: 'Services', minRole: BusinessRole.manager, implemented: true),
   _NavItem(icon: Icons.inventory_2_outlined, label: 'Products', minRole: BusinessRole.manager, implemented: true),
@@ -105,6 +107,8 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     switch (item.label) {
       case 'POS':
         return const PosScreen();
+      case 'Sales':
+        return const SalesScreen();
       case 'Services':
         return const ServicesScreen();
       case 'Products':

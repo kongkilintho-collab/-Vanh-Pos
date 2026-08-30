@@ -12,6 +12,9 @@ class Sale {
   final String status;
   final String paymentStatus;
   final DateTime createdAt;
+  final String? voidReason;
+  final String? voidedBy;
+  final DateTime? voidedAt;
 
   const Sale({
     required this.id,
@@ -25,6 +28,9 @@ class Sale {
     required this.status,
     required this.paymentStatus,
     required this.createdAt,
+    this.voidReason,
+    this.voidedBy,
+    this.voidedAt,
   });
 
   factory Sale.fromJson(Map<String, dynamic> json) {
@@ -40,6 +46,9 @@ class Sale {
       status: json['status'] as String,
       paymentStatus: json['payment_status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
+      voidReason: json['void_reason'] as String?,
+      voidedBy: json['voided_by'] as String?,
+      voidedAt: json['voided_at'] == null ? null : DateTime.parse(json['voided_at'] as String),
     );
   }
 }

@@ -3,6 +3,21 @@
 // 0022_protect_financial_snapshot_columns.sql,
 // 0023_complete_sale_customer_integrity.sql).
 //
+// UPDATED for F9-2 (0026_void_sale.sql): the sales.total_amount and
+// payments.amount cases below no longer assert that the
+// protect_sales_snapshot_columns/protect_payments_snapshot_columns
+// triggers raise an exception -- 0026 dropped sales_update and
+// payments_update entirely (both were unused by the app and were exactly
+// the void-bypass F9-2 closed), so a direct client UPDATE on either table
+// now matches zero rows at the RLS layer and never reaches those triggers
+// at all. The security property these tests protect ("a MANAGER+ cannot
+// forge total_amount/amount via direct REST") is unchanged and is now
+// enforced earlier and more strongly (0 rows touched, not just the
+// specific column blocked) -- only the observable mechanism changed, so
+// only the assertions changed. The commissions.commission_amount case is
+// untouched below: commissions_update was not part of F9-2's scope and
+// still rejects via the same trigger as before.
+//
 // Uses the same live Supabase project and QA fixture accounts as the other
 // integration tests in this directory -- see
 // business_repository_regression_test.dart's header for setup details and
@@ -82,7 +97,7 @@ void main() {
   });
 
   group('F1: financial/snapshot column protection', () {
-    test('a MANAGER+ direct update to sales.total_amount is rejected; status remains updatable', () async {
+    test('MANAGER+ cannot directly update sales.total_amount: the UPDATE path is RLS-denied (0 rows), not merely trigger-blocked', () async {
       if (!_canRun) {
         markTestSkipped(_skipReason);
         return;
@@ -124,27 +139,20 @@ void main() {
         idempotencyKey: _uuid.v4(),
       );
 
-      await expectLater(
-        client.from('sales').update({'total_amount': '1'}).eq('id', sale['id'] as String),
-        throwsA(isA<PostgrestException>().having(
-          (e) => e.message,
-          'message',
-          contains('Cannot modify financial, attribution, or identity fields'),
-        )),
-      );
+      final updated = await client.from('sales').update({'total_amount': '1'}).eq('id', sale['id'] as String).select();
+      expect(updated, isEmpty,
+          reason: 'sales_update was dropped in 0026_void_sale.sql -- RLS filters the row to zero '
+              'matches before any trigger can run; the client can no longer reach the trigger at all, '
+              'including for a status-only change -- void_sale is now the only path that can transition '
+              'sales.status.');
 
       final unchanged = await client.from('sales').select('total_amount').eq('id', sale['id'] as String).single();
       expect(Decimal.parse(unchanged['total_amount'].toString()), Decimal.parse('100000'));
 
-      // Legitimate existing behavior: a status-only change is still allowed
-      // by the trigger (RLS's own MANAGER+ floor on sales_update is
-      // untouched and still applies).
-      await client.from('sales').update({'status': 'COMPLETED'}).eq('id', sale['id'] as String);
-
       await client.auth.signOut();
     });
 
-    test('a direct update to payments.amount is rejected', () async {
+    test('MANAGER+ cannot directly update payments.amount: the UPDATE path is RLS-denied (0 rows), not merely trigger-blocked', () async {
       if (!_canRun) {
         markTestSkipped(_skipReason);
         return;
@@ -188,14 +196,13 @@ void main() {
 
       final payment = await client.from('payments').select('id').eq('business_id', businessAId).order('created_at', ascending: false).limit(1).single();
 
-      await expectLater(
-        client.from('payments').update({'amount': '1'}).eq('id', payment['id'] as String),
-        throwsA(isA<PostgrestException>().having(
-          (e) => e.message,
-          'message',
-          contains('Cannot modify financial or identity fields on an existing payment'),
-        )),
-      );
+      final updated = await client.from('payments').update({'amount': '1'}).eq('id', payment['id'] as String).select();
+      expect(updated, isEmpty,
+          reason: 'payments_update was dropped in 0026_void_sale.sql -- RLS filters the row to zero '
+              'matches before any trigger can run.');
+
+      final unchanged = await client.from('payments').select('amount').eq('id', payment['id'] as String).single();
+      expect(Decimal.parse(unchanged['amount'].toString()), Decimal.parse('50000'));
 
       await client.auth.signOut();
     });

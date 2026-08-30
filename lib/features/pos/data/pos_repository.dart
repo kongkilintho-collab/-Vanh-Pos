@@ -86,4 +86,23 @@ class PosRepository {
     });
     return row as Map<String, dynamic>;
   }
+
+  /// Calls the void_sale RPC (see supabase/migrations/0026_void_sale.sql),
+  /// which atomically transitions a COMPLETED sale to VOIDED, reverses its
+  /// inventory and commissions, marks its payment REFUNDED, and writes the
+  /// audit record -- all inside the RPC's own transaction. This is the only
+  /// sanctioned path to change a sale's status; direct table UPDATEs on
+  /// sales/payments are no longer permitted by RLS as of that migration.
+  Future<Map<String, dynamic>> voidSale({
+    required String businessId,
+    required String saleId,
+    required String reason,
+  }) async {
+    final row = await _client.rpc('void_sale', params: {
+      'p_business_id': businessId,
+      'p_sale_id': saleId,
+      'p_reason': reason,
+    });
+    return row as Map<String, dynamic>;
+  }
 }
