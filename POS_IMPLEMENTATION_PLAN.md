@@ -1,11 +1,14 @@
 # Beauty Clinic POS — Implementation Plan
 
-Status snapshot: **Day 5 complete** — Day 1 (Foundation), Day 2 (POS Core),
-Day 3 (CRM + Staff + Commission), Day 4 (Inventory + Expenses), and Day 5
-(Dashboard + Reports) are implemented and verified green against the live
-Supabase project. This document is updated as each day lands — it
-reflects what's actually built, not aspirations. See the Definition of
-Done checklist at the bottom for live status.
+Status snapshot: **Day 5 complete; Day 6 (Security + Hardening) in
+progress** — Day 1 (Foundation), Day 2 (POS Core), Day 3 (CRM + Staff +
+Commission), Day 4 (Inventory + Expenses), and Day 5 (Dashboard +
+Reports) are implemented and verified green against the live Supabase
+project. Day 6's RLS/RPC privilege audit and hardening pass is complete
+and verified live; its refund/void flow, full audit-log wiring, and UX
+polish items remain pending. This document is updated as each day
+lands — it reflects what's actually built, not aspirations. See the
+Definition of Done checklist at the bottom for live status.
 
 ## 1. Product & Stack
 
@@ -116,8 +119,14 @@ project's default privileges grant `EXECUTE` on every newly created
 `public` function to `anon` as a separate ACL entry — independent of, and
 not touched by, `revoke ... from public`. `0019` revokes `anon` execute on
 this one function specifically. A broader, project-wide default-privilege
-sweep across all RPCs remains intentionally out of scope here and is
-tracked as Day 6 ("Security + Hardening") work.
+sweep (i.e. an `ALTER DEFAULT PRIVILEGES` change affecting every future
+function) remains intentionally out of scope and undone — but Day 6's
+security audit confirmed the same gap on `create_business_with_owner`,
+`invite_business_member`, and `complete_sale` and closed it the same
+per-function way in `0021_revoke_anon_execute_on_onboarding_and_checkout.sql`,
+so all five sensitive functions in this project
+(`find_invitable_user_id`, `adjust_stock`, `create_business_with_owner`,
+`invite_business_member`, `complete_sale`) are now individually hardened.
 
 ## 5. Transaction / RPC Strategy
 
@@ -163,8 +172,11 @@ every CRUD op" guidance.
    suppliers, low-stock, expense tracking.
 5. **Dashboard + Reports** (done) — real metrics (today's sales, commission,
    expenses, estimated profit), report filters/export.
-6. **Security + Hardening** — refund/void flow, audit log wiring across
-   all mutations, RLS re-audit, error handling pass, UX polish.
+6. **Security + Hardening** (in progress — RLS/RPC privilege audit and
+   hardening done and verified live; refund/void flow, audit log wiring
+   across all mutations, and UX polish still pending) — refund/void flow,
+   audit log wiring across all mutations, RLS re-audit, error handling
+   pass, UX polish.
 7. **QA + Deployment** — full test matrix (section 46/47 of the spec),
    production build, deployment, documentation.
 
@@ -327,3 +339,92 @@ fresh Supabase project:
   share-sheet package was added, per "no new dependencies unless
   absolutely required"); no report result is cached, so switching the
   date-range filter re-queries live each time.
+
+**Day 6 completion notes** (2026-08-30 live verification — RLS/RPC
+privilege audit and hardening pass; refund/void flow, full audit-log
+wiring, and UX polish remain pending for the rest of Day 6):
+- A forensic security audit of Days 1–5's RLS policies, RPCs, and
+  privilege grants found four findings, all fixed and verified live:
+  - **F1 (financial/snapshot column protection)**: `sales_update`,
+    `payments_update`, and `commissions_update` RLS correctly gated *who*
+    could write (MANAGER+/ADMIN+) but not *which columns* — a privileged
+    session against the raw REST API could have rewritten `total_amount`,
+    `paid_amount`, `commission_amount`, staff attribution, or
+    `idempotency_key` directly, bypassing every guarantee `complete_sale`
+    established at creation. Fixed with `BEFORE UPDATE` triggers
+    (`0022_protect_financial_snapshot_columns.sql`) that reject changes to
+    server-computed/snapshot columns while still allowing `status`/void
+    metadata to change. `complete_sale` only ever `INSERT`s into these
+    tables, so the Day 2 checkout path is unaffected — confirmed live.
+  - **F2 (customer lifetime metrics protection)**: `customers.total_spent`
+    /`visit_count`/`last_visit_at` are running totals only `complete_sale`
+    should maintain, but `customers_update` RLS (CASHIER+) had no column
+    restriction. Since these three columns *do* need a legitimate internal
+    writer, a blanket block would have broken checkout — fixed instead
+    with a transaction-local trusted-context flag (`set_config('app.
+    trusted_customer_stats_update', 'true', true)`, set by `complete_sale`
+    immediately before its own update) that a new `customers` trigger
+    checks (`0023_complete_sale_customer_integrity.sql`). A client cannot
+    forge this context: `set_config` is a `pg_catalog` builtin never
+    exposed as a PostgREST RPC, and the flag is scoped to `complete_sale`'s
+    own transaction only. Verified live both ways: a direct API update to
+    `total_spent` is rejected, and `complete_sale` still updates all three
+    columns correctly for a real sale.
+  - **F3 (RPC EXECUTE privilege hardening)**: live empirical probing
+    (the same anonymous-RPC technique that discovered the Day 3
+    `find_invitable_user_id` gap) proved `anon` still held live `EXECUTE`
+    on `create_business_with_owner`, `invite_business_member`, and
+    `complete_sale` — each was protected only by its own internal
+    application check, with no ACL-level backstop, unlike
+    `find_invitable_user_id`/`adjust_stock`. Fixed in
+    `0021_revoke_anon_execute_on_onboarding_and_checkout.sql`: explicit
+    `revoke ... from anon` for all three, plus an explicit
+    `auth.uid() is null` guard added to `invite_business_member` for
+    consistency (it previously relied on an implicit null-role rejection).
+    Verified live: all five sensitive functions
+    (`find_invitable_user_id`, `adjust_stock`, `create_business_with_owner`,
+    `invite_business_member`, `complete_sale`) now return Postgres's own
+    `42501 permission denied` to an anonymous caller.
+  - **F4 (`complete_sale` customer tenant validation)**: `p_customer_id`
+    was written into `sales.customer_id` with no check that it belonged to
+    `p_business_id`, unlike `service_id`/`product_id`/`staff_id` in the
+    same function, which are all re-validated. Fixed in
+    `0023_complete_sale_customer_integrity.sql` with the same validation
+    style already used for `staff_id`; a cross-tenant or nonexistent
+    `customer_id` now raises `Customer not found in this business`, while
+    `NULL` (walk-in sales) is unaffected.
+- No RLS policy was weakened, no existing RPC's authorization was loosened,
+  `guard_last_owner` and `BusinessRepository.myMemberships()` were not
+  touched, and no `ALTER DEFAULT PRIVILEGES` was used anywhere.
+- Test-process note, for transparency: the first version of the new Day 6
+  test suite's F3 "legitimate call still works" check for
+  `create_business_with_owner` called the real RPC with a real name,
+  permanently creating an extra business — since `businesses` has no
+  DELETE policy and `guard_last_owner` requires at least one active OWNER
+  at all times, this could not be undone by deleting it. It was resolved
+  entirely through legitimate, RLS-respecting application paths: a
+  dedicated custodian account (created via the Supabase Dashboard, not
+  self-service signup — this project's email validation rejects the
+  `.local` fixture domain) was added as the orphan business's OWNER via
+  the existing `invite_business_member` RPC, after which both real
+  fixture accounts' memberships in that business were deactivated —
+  restoring their `firstWhere(role == owner)` fixture resolution used
+  throughout the suite. No direct SQL, no service-role credential, and no
+  RLS bypass were used at any point. The test itself was then redesigned
+  to call `create_business_with_owner` with a deliberately blank
+  `p_name`, asserting the function's own `Business name is required`
+  validation — proving the authenticated path still works past the new
+  ACL with zero persistent side effects.
+- Live regression gates, all green against the live Supabase project
+  after the hardening migrations (`0021`–`0023`) were applied:
+  - Day 6 Security Hardening regression: 10/10
+  - Day 2 POS regression (frozen): 4/4
+  - F1 + SEC-CRITICAL regression (frozen): 6/6
+  - Day 3 Customer/Staff/Commission regression (frozen): 8/8
+  - Staff invite lookup regression (frozen): 7/7
+  - Day 4 Inventory/Expenses regression (frozen): 9/9
+  - Day 5 Reports regression (frozen): 4/4
+  - Combined Day 2–6 total: 35/35
+  - `flutter analyze`: no issues
+  - `flutter test` (full suite): 17 passed, 49 skipped, 0 failed (live
+    suites skip without `env.json` credentials)
