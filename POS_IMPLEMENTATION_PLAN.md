@@ -223,9 +223,12 @@ fresh Supabase project:
 - [x] Expenses
 - [x] Dashboard (real metrics)
 - [x] Reports
-- [ ] Refund/Void
-- [ ] Audit logs wired to every mutation (`complete_sale` writes an audit
-      log row for the sale; not yet extended to every other mutation)
+- [x] Refund/Void (`void_sale` RPC, `0026_void_sale.sql` — F9-2, verified
+      live)
+- [x] Audit logs wired to every mutation (extended beyond `complete_sale`
+      to `adjust_stock`, `set_member_role`, `set_member_active`
+      (`0027_audit_log_coverage.sql`, F9-3) and `update_business_settings`
+      (`0028_business_settings_rpc.sql`, F9-4))
 - [x] Duplicate transaction protection (`sales.idempotency_key`, enforced
       by `complete_sale` — verified live: a retried submit is a no-op,
       not a duplicate sale)
@@ -238,9 +241,11 @@ fresh Supabase project:
       append-only policies all exercised as real authenticated users)
 - [x] `flutter analyze` passes
 - [x] `flutter test` passes
-- [ ] production build verified
-- [ ] deployment
-- [ ] documentation complete (this file is the start)
+- [x] production build verified (`flutter build web
+      --dart-define-from-file=env.json` — exit 0)
+- [ ] deployment (target not yet chosen — see §8)
+- [ ] documentation complete (production build + env config documented in
+      README; deployment procedure blocked on target decision)
 
 **Day 3 completion notes** (2026-08-28 live verification):
 - Customer CRM (list/search, create/edit, profile) — done.

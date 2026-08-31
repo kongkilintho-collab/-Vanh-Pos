@@ -31,3 +31,28 @@ flutter test
 ```
 
 Both must pass before a change is considered done.
+
+## Production build
+
+Verified build command:
+
+```
+flutter build web --dart-define-from-file=env.json
+```
+
+This produces a static `build/web` artifact — no server-side rendering;
+secrets are injected at build time via `--dart-define-from-file`, the same
+mechanism used for `flutter run` above.
+
+Required environment variables (set in `env.json`):
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+`env.json` is local and gitignored; `env.example.json` is the committed
+template. Never commit `env.json` or any file containing these values.
+
+**Deployment target: TBD.** No hosting provider is configured in this
+repository yet — see `POS_IMPLEMENTATION_PLAN.md` §8 for the options under
+consideration. Deployment steps will be documented here once a target is
+chosen.
