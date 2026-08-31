@@ -182,13 +182,17 @@ every CRUD op" guidance.
 
 ## 8. Deployment
 
-Flutter Web build (`flutter build web`) as the primary target, deployable
-to any static host; Windows desktop build as a secondary target for
+Flutter Web build (`flutter build web`) as the primary target, deployed to
+**Cloudflare Pages** (Git-connected build — see README's "Cloudflare
+Pages deployment" section for the build command, output directory, and
+env var strategy); Windows desktop build as a secondary target for
 in-clinic kiosk use. Supabase project is the only backend — no servers to
 deploy. Secrets (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) are injected via
-`--dart-define-from-file=env.json`, which is gitignored
-(`env.example.json` is the committed template). The Supabase service role
-key is never used by this client and never enters the repository.
+`--dart-define` at build time (locally via `--dart-define-from-file=env.json`,
+which is gitignored — `env.example.json` is the committed template; on
+Cloudflare Pages via project-level build-time environment variables). The
+Supabase service role key is never used by this client and never enters
+the repository.
 
 ## 9. Applying the database schema
 
@@ -243,9 +247,13 @@ fresh Supabase project:
 - [x] `flutter test` passes
 - [x] production build verified (`flutter build web
       --dart-define-from-file=env.json` — exit 0)
-- [ ] deployment (target not yet chosen — see §8)
-- [ ] documentation complete (production build + env config documented in
-      README; deployment procedure blocked on target decision)
+- [ ] deployment — repository-side configuration complete (Cloudflare
+      Pages target chosen; build command, output directory, and
+      build-time env var strategy documented in README); live deployment
+      pending owner action (Cloudflare project creation, env var entry,
+      first deploy)
+- [x] documentation complete (production build, env config, and
+      Cloudflare Pages deployment procedure all documented in README)
 
 **Day 3 completion notes** (2026-08-28 live verification):
 - Customer CRM (list/search, create/edit, profile) — done.
