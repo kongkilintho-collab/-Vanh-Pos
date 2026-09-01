@@ -10,6 +10,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'product_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<void> showProductFormSheet(BuildContext context, {Product? existing}) {
   return showModalBottomSheet(
@@ -31,16 +32,24 @@ class _ProductFormSheet extends ConsumerStatefulWidget {
 
 class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.existing?.name ?? '');
-  late final _skuController = TextEditingController(text: widget.existing?.sku ?? '');
-  late final _sellingPriceController =
-      TextEditingController(text: widget.existing?.sellingPrice.toString() ?? '');
-  late final _costPriceController =
-      TextEditingController(text: widget.existing?.costPrice.toString() ?? '0');
-  late final _stockController =
-      TextEditingController(text: (widget.existing?.stockQuantity ?? 0).toString());
-  late final _minStockController =
-      TextEditingController(text: (widget.existing?.minimumStock ?? 0).toString());
+  late final _nameController = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
+  late final _skuController = TextEditingController(
+    text: widget.existing?.sku ?? '',
+  );
+  late final _sellingPriceController = TextEditingController(
+    text: widget.existing?.sellingPrice.toString() ?? '',
+  );
+  late final _costPriceController = TextEditingController(
+    text: widget.existing?.costPrice.toString() ?? '0',
+  );
+  late final _stockController = TextEditingController(
+    text: (widget.existing?.stockQuantity ?? 0).toString(),
+  );
+  late final _minStockController = TextEditingController(
+    text: (widget.existing?.minimumStock ?? 0).toString(),
+  );
   late bool _active = widget.existing?.active ?? true;
 
   bool _loading = false;
@@ -94,7 +103,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -113,7 +122,12 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(isEditing ? 'Edit product' : 'Add product', style: AppTextStyles.headline),
+              Text(
+                isEditing
+                    ? context.l10n.productsEditTitle
+                    : context.l10n.productsAddTitle,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.lg),
               if (_error != null) ...[
                 ErrorBanner(message: _error!),
@@ -121,13 +135,19 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
               ],
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Product name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                decoration: InputDecoration(
+                  labelText: context.l10n.productNameLabel,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.commonRequired
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _skuController,
-                decoration: const InputDecoration(labelText: 'SKU (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.productSkuOptionalLabel,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Row(
@@ -135,11 +155,16 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _sellingPriceController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: 'Selling price (LAK)'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.productSellingPriceLak,
+                      ),
                       validator: (v) {
                         final parsed = Decimal.tryParse(v?.trim() ?? '');
-                        if (parsed == null || parsed < Decimal.zero) return 'Invalid';
+                        if (parsed == null || parsed < Decimal.zero)
+                          return context.l10n.commonInvalid;
                         return null;
                       },
                     ),
@@ -148,11 +173,16 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _costPriceController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: 'Cost price (LAK)'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.productCostPriceLak,
+                      ),
                       validator: (v) {
                         final parsed = Decimal.tryParse(v?.trim() ?? '');
-                        if (parsed == null || parsed < Decimal.zero) return 'Invalid';
+                        if (parsed == null || parsed < Decimal.zero)
+                          return context.l10n.commonInvalid;
                         return null;
                       },
                     ),
@@ -166,10 +196,13 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                     child: TextFormField(
                       controller: _stockController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Stock quantity'),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.productStockQuantityLabel,
+                      ),
                       validator: (v) {
                         final parsed = int.tryParse(v?.trim() ?? '');
-                        if (parsed == null || parsed < 0) return 'Invalid';
+                        if (parsed == null || parsed < 0)
+                          return context.l10n.commonInvalid;
                         return null;
                       },
                     ),
@@ -179,10 +212,13 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                     child: TextFormField(
                       controller: _minStockController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Low-stock alert at'),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.productLowStockAlertAtLabel,
+                      ),
                       validator: (v) {
                         final parsed = int.tryParse(v?.trim() ?? '');
-                        if (parsed == null || parsed < 0) return 'Invalid';
+                        if (parsed == null || parsed < 0)
+                          return context.l10n.commonInvalid;
                         return null;
                       },
                     ),
@@ -192,13 +228,15 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
               const SizedBox(height: AppSpacing.sm),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Active'),
+                title: Text(context.l10n.commonActive),
                 value: _active,
                 onChanged: (v) => setState(() => _active = v),
               ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                label: isEditing ? 'Save changes' : 'Add product',
+                label: isEditing
+                    ? context.l10n.commonSaveChanges
+                    : context.l10n.productsAddTitle,
                 onPressed: _submit,
                 loading: _loading,
               ),

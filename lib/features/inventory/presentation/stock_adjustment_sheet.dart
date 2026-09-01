@@ -12,8 +12,12 @@ import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../../products/presentation/product_providers.dart';
 import 'inventory_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
-Future<void> showStockAdjustmentSheet(BuildContext context, {required Product product}) {
+Future<void> showStockAdjustmentSheet(
+  BuildContext context, {
+  required Product product,
+}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -30,7 +34,8 @@ class _StockAdjustmentSheet extends ConsumerStatefulWidget {
   const _StockAdjustmentSheet({required this.product});
 
   @override
-  ConsumerState<_StockAdjustmentSheet> createState() => _StockAdjustmentSheetState();
+  ConsumerState<_StockAdjustmentSheet> createState() =>
+      _StockAdjustmentSheetState();
 }
 
 class _StockAdjustmentSheetState extends ConsumerState<_StockAdjustmentSheet> {
@@ -71,7 +76,9 @@ class _StockAdjustmentSheetState extends ConsumerState<_StockAdjustmentSheet> {
         branchId: branchId,
         movementType: _movementType,
         quantityDelta: delta,
-        note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
       );
 
       ref.invalidate(productsListProvider);
@@ -79,7 +86,7 @@ class _StockAdjustmentSheetState extends ConsumerState<_StockAdjustmentSheet> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -97,10 +104,16 @@ class _StockAdjustmentSheetState extends ConsumerState<_StockAdjustmentSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Adjust stock', style: AppTextStyles.headline),
+              Text(
+                context.l10n.invAdjustStockTitle,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '${widget.product.name} · currently ${widget.product.stockQuantity} in stock',
+                context.l10n.invAdjustStockSubtitle(
+                  widget.product.name,
+                  widget.product.stockQuantity,
+                ),
                 style: AppTextStyles.body.copyWith(color: AppColors.muted),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -109,9 +122,17 @@ class _StockAdjustmentSheetState extends ConsumerState<_StockAdjustmentSheet> {
                 const SizedBox(height: AppSpacing.lg),
               ],
               SegmentedButton<_Direction>(
-                segments: const [
-                  ButtonSegment(value: _Direction.add, label: Text('Add stock'), icon: Icon(Icons.add)),
-                  ButtonSegment(value: _Direction.remove, label: Text('Remove stock'), icon: Icon(Icons.remove)),
+                segments: [
+                  ButtonSegment(
+                    value: _Direction.add,
+                    label: Text(context.l10n.invAddStockSegment),
+                    icon: const Icon(Icons.add),
+                  ),
+                  ButtonSegment(
+                    value: _Direction.remove,
+                    label: Text(context.l10n.invRemoveStockSegment),
+                    icon: const Icon(Icons.remove),
+                  ),
                 ],
                 selected: {_direction},
                 onSelectionChanged: (s) => setState(() => _direction = s.first),
@@ -120,30 +141,47 @@ class _StockAdjustmentSheetState extends ConsumerState<_StockAdjustmentSheet> {
               TextFormField(
                 controller: _quantityController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Quantity'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.invQuantityLabel,
+                ),
                 validator: (v) {
                   final parsed = int.tryParse(v?.trim() ?? '');
-                  if (parsed == null || parsed <= 0) return 'Enter a positive whole number';
+                  if (parsed == null || parsed <= 0)
+                    return context.l10n.invQuantityPositiveRequired;
                   return null;
                 },
               ),
               const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<InventoryMovementType>(
                 initialValue: _movementType,
-                decoration: const InputDecoration(labelText: 'Reason'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.invReasonLabel,
+                ),
                 items: InventoryMovementType.manualTypes
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t.label(context.l10n)),
+                      ),
+                    )
                     .toList(),
-                onChanged: (t) => setState(() => _movementType = t ?? _movementType),
+                onChanged: (t) =>
+                    setState(() => _movementType = t ?? _movementType),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _noteController,
-                decoration: const InputDecoration(labelText: 'Note (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.invNoteOptionalLabel,
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(label: 'Save adjustment', onPressed: _submit, loading: _loading),
+              PrimaryButton(
+                label: context.l10n.invSaveAdjustment,
+                onPressed: _submit,
+                loading: _loading,
+              ),
             ],
           ),
         ),

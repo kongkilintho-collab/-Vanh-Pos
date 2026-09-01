@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
+import '../../../l10n/l10n_extensions.dart';
 import '../../../shared/models/business_role.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
@@ -23,32 +25,109 @@ import '../../staff/presentation/staff_screen.dart';
 
 class _NavItem {
   final IconData icon;
-  final String label;
+  final String id;
   final BusinessRole minRole;
   final bool implemented;
 
   const _NavItem({
     required this.icon,
-    required this.label,
+    required this.id,
     this.minRole = BusinessRole.staff,
     this.implemented = false,
   });
+
+  String label(AppLocalizations l10n) => switch (id) {
+    'overview' => l10n.navOverview,
+    'pos' => l10n.navPos,
+    'sales' => l10n.navSales,
+    'customers' => l10n.navCustomers,
+    'services' => l10n.navServices,
+    'products' => l10n.navProducts,
+    'inventory' => l10n.navInventory,
+    'staff' => l10n.navStaff,
+    'commissions' => l10n.navCommissions,
+    'expenses' => l10n.navExpenses,
+    'reports' => l10n.navReports,
+    'auditLog' => l10n.navAuditLog,
+    'settings' => l10n.navSettings,
+    _ => id,
+  };
 }
 
 const _navItems = [
-  _NavItem(icon: Icons.dashboard_outlined, label: 'Overview', implemented: true),
-  _NavItem(icon: Icons.point_of_sale_outlined, label: 'POS', minRole: BusinessRole.cashier, implemented: true),
-  _NavItem(icon: Icons.receipt_outlined, label: 'Sales', minRole: BusinessRole.cashier, implemented: true),
-  _NavItem(icon: Icons.groups_outlined, label: 'Customers', minRole: BusinessRole.cashier, implemented: true),
-  _NavItem(icon: Icons.spa_outlined, label: 'Services', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.inventory_2_outlined, label: 'Products', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.warehouse_outlined, label: 'Inventory', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.badge_outlined, label: 'Staff', minRole: BusinessRole.admin, implemented: true),
-  _NavItem(icon: Icons.percent_outlined, label: 'Commissions', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.receipt_long_outlined, label: 'Expenses', minRole: BusinessRole.admin, implemented: true),
-  _NavItem(icon: Icons.bar_chart_outlined, label: 'Reports', minRole: BusinessRole.manager, implemented: true),
-  _NavItem(icon: Icons.history_outlined, label: 'Audit Log', minRole: BusinessRole.admin, implemented: true),
-  _NavItem(icon: Icons.settings_outlined, label: 'Settings', minRole: BusinessRole.admin, implemented: true),
+  _NavItem(icon: Icons.dashboard_outlined, id: 'overview', implemented: true),
+  _NavItem(
+    icon: Icons.point_of_sale_outlined,
+    id: 'pos',
+    minRole: BusinessRole.cashier,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.receipt_outlined,
+    id: 'sales',
+    minRole: BusinessRole.cashier,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.groups_outlined,
+    id: 'customers',
+    minRole: BusinessRole.cashier,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.spa_outlined,
+    id: 'services',
+    minRole: BusinessRole.manager,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.inventory_2_outlined,
+    id: 'products',
+    minRole: BusinessRole.manager,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.warehouse_outlined,
+    id: 'inventory',
+    minRole: BusinessRole.manager,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.badge_outlined,
+    id: 'staff',
+    minRole: BusinessRole.admin,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.percent_outlined,
+    id: 'commissions',
+    minRole: BusinessRole.manager,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.receipt_long_outlined,
+    id: 'expenses',
+    minRole: BusinessRole.admin,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.bar_chart_outlined,
+    id: 'reports',
+    minRole: BusinessRole.manager,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.history_outlined,
+    id: 'auditLog',
+    minRole: BusinessRole.admin,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.settings_outlined,
+    id: 'settings',
+    minRole: BusinessRole.admin,
+    implemented: true,
+  ),
 ];
 
 class DashboardShell extends ConsumerStatefulWidget {
@@ -70,8 +149,9 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final visibleItems =
-        _navItems.where((item) => membership.role.isAtLeast(item.minRole)).toList();
+    final visibleItems = _navItems
+        .where((item) => membership.role.isAtLeast(item.minRole))
+        .toList();
     if (_selectedIndex >= visibleItems.length) _selectedIndex = 0;
 
     final isWide = MediaQuery.sizeOf(context).width >= 900;
@@ -81,7 +161,7 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
       selectedIndex: _selectedIndex,
       onSelect: (i) => setState(() => _selectedIndex = i),
       businessName: membership.business.name,
-      roleLabel: membership.role.label,
+      roleLabel: membership.role.label(context.l10n),
       userEmail: user?.email ?? '',
     );
 
@@ -100,42 +180,44 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(visibleItems[_selectedIndex].label)),
+      appBar: AppBar(
+        title: Text(visibleItems[_selectedIndex].label(context.l10n)),
+      ),
       drawer: Drawer(child: sidebar),
       body: content,
     );
   }
 
   Widget _buildContent(_NavItem item) {
-    switch (item.label) {
-      case 'POS':
+    switch (item.id) {
+      case 'pos':
         return const PosScreen();
-      case 'Sales':
+      case 'sales':
         return const SalesScreen();
-      case 'Services':
+      case 'services':
         return const ServicesScreen();
-      case 'Products':
+      case 'products':
         return const ProductsScreen();
-      case 'Customers':
+      case 'customers':
         return const CustomersScreen();
-      case 'Staff':
+      case 'staff':
         return const StaffScreen();
-      case 'Commissions':
+      case 'commissions':
         return const CommissionsScreen();
-      case 'Inventory':
+      case 'inventory':
         return const InventoryScreen();
-      case 'Expenses':
+      case 'expenses':
         return const ExpensesScreen();
-      case 'Overview':
+      case 'overview':
         return const DashboardOverviewScreen();
-      case 'Reports':
+      case 'reports':
         return const ReportsScreen();
-      case 'Audit Log':
+      case 'auditLog':
         return const AuditLogScreen();
-      case 'Settings':
+      case 'settings':
         return const SettingsScreen();
       default:
-        return _OverviewContent(selectedLabel: item.label, implemented: item.implemented);
+        return _OverviewContent(item: item);
     }
   }
 }
@@ -166,7 +248,12 @@ class _Sidebar extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: Row(
                 children: [
                   Container(
@@ -178,8 +265,12 @@ class _Sidebar extends ConsumerWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      businessName.isNotEmpty ? businessName[0].toUpperCase() : '?',
-                      style: AppTextStyles.subtitle.copyWith(color: Colors.white),
+                      businessName.isNotEmpty
+                          ? businessName[0].toUpperCase()
+                          : '?',
+                      style: AppTextStyles.subtitle.copyWith(
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -204,15 +295,26 @@ class _Sidebar extends ConsumerWidget {
                   final selected = index == selectedIndex;
                   return ListTile(
                     leading: Icon(item.icon, size: 20),
-                    title: Text(item.label, style: AppTextStyles.body),
+                    title: Text(
+                      item.label(context.l10n),
+                      style: AppTextStyles.body,
+                    ),
                     trailing: item.implemented
                         ? null
-                        : Text('Soon', style: AppTextStyles.caption.copyWith(color: AppColors.muted)),
+                        : Text(
+                            context.l10n.navSoon,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.muted,
+                            ),
+                          ),
                     selected: selected,
-                    selectedTileColor: AppColors.primaryLight.withValues(alpha: 0.5),
+                    selectedTileColor: AppColors.primaryLight.withValues(
+                      alpha: 0.5,
+                    ),
                     onTap: () {
                       onSelect(index);
-                      if (Scaffold.of(context).isDrawerOpen) Navigator.of(context).pop();
+                      if (Scaffold.of(context).isDrawerOpen)
+                        Navigator.of(context).pop();
                     },
                   );
                 },
@@ -228,13 +330,22 @@ class _Sidebar extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(userEmail, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis),
-                        Text(roleLabel, style: AppTextStyles.captionStrong.copyWith(color: AppColors.primary)),
+                        Text(
+                          userEmail,
+                          style: AppTextStyles.caption,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          roleLabel,
+                          style: AppTextStyles.captionStrong.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Sign out',
+                    tooltip: context.l10n.authSignOut,
                     icon: const Icon(Icons.logout, size: 18),
                     onPressed: () => ref.read(authRepositoryProvider).signOut(),
                   ),
@@ -249,26 +360,32 @@ class _Sidebar extends ConsumerWidget {
 }
 
 class _OverviewContent extends StatelessWidget {
-  final String selectedLabel;
-  final bool implemented;
+  final _NavItem item;
 
-  const _OverviewContent({required this.selectedLabel, required this.implemented});
+  const _OverviewContent({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    if (!implemented) {
+    if (!item.implemented) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.construction_outlined, size: 40, color: AppColors.muted),
+              const Icon(
+                Icons.construction_outlined,
+                size: 40,
+                color: AppColors.muted,
+              ),
               const SizedBox(height: AppSpacing.md),
-              Text('$selectedLabel is not built yet', style: AppTextStyles.title),
+              Text(
+                context.l10n.navNotBuiltYet(item.label(context.l10n)),
+                style: AppTextStyles.title,
+              ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'This section is scheduled later in the build plan.',
+                context.l10n.navScheduledLater,
                 style: AppTextStyles.body.copyWith(color: AppColors.muted),
               ),
             ],
@@ -282,12 +399,10 @@ class _OverviewContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Overview', style: AppTextStyles.displayMedium),
+          Text(context.l10n.navOverview, style: AppTextStyles.displayMedium),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            "You're authenticated and your business workspace is set up. "
-            'POS, customers, inventory, and reporting come online as each '
-            'part of the build lands.',
+            context.l10n.overviewIntro,
             style: AppTextStyles.body.copyWith(color: AppColors.muted),
           ),
         ],

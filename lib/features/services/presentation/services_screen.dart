@@ -10,6 +10,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'service_form_sheet.dart';
 import 'service_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class ServicesScreen extends ConsumerWidget {
   const ServicesScreen({super.key});
@@ -23,14 +24,14 @@ class ServicesScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showServiceFormSheet(context),
         icon: const Icon(Icons.add),
-        label: const Text('Add service'),
+        label: Text(context.l10n.servicesAddTitle),
       ),
       body: servicesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.xl),
-            child: ErrorBanner(message: friendlyError(err)),
+            child: ErrorBanner(message: friendlyError(err, context.l10n)),
           ),
         ),
         data: (services) {
@@ -41,13 +42,22 @@ class ServicesScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.spa_outlined, size: 40, color: AppColors.muted),
+                    const Icon(
+                      Icons.spa_outlined,
+                      size: 40,
+                      color: AppColors.muted,
+                    ),
                     const SizedBox(height: AppSpacing.md),
-                    Text('No services yet', style: AppTextStyles.title),
+                    Text(
+                      context.l10n.servicesEmptyTitle,
+                      style: AppTextStyles.title,
+                    ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Add your first service to start taking bookings and sales.',
-                      style: AppTextStyles.body.copyWith(color: AppColors.muted),
+                      context.l10n.servicesEmptySubtitle,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -56,10 +66,16 @@ class ServicesScreen extends ConsumerWidget {
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, 88),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.xl,
+              AppSpacing.xl,
+              88,
+            ),
             itemCount: services.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) => _ServiceTile(service: services[index]),
+            itemBuilder: (context, index) =>
+                _ServiceTile(service: services[index]),
           );
         },
       ),
@@ -76,16 +92,26 @@ class _ServiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
         leading: CircleAvatar(
           backgroundColor: AppColors.primaryLight,
-          child: const Icon(Icons.spa_outlined, color: AppColors.primary, size: 18),
+          child: const Icon(
+            Icons.spa_outlined,
+            color: AppColors.primary,
+            size: 18,
+          ),
         ),
         title: Text(service.name, style: AppTextStyles.bodyStrong),
         subtitle: Text(
-          '${service.durationMinutes} min · '
-          '${service.commissionType.label} ${service.commissionValue}'
-          '${service.commissionType.dbValue == 'PERCENTAGE' ? '%' : ''} commission',
+          context.l10n.servicesDurationCommission(
+            service.durationMinutes,
+            service.commissionType.label(context.l10n),
+            service.commissionValue.toString(),
+            service.commissionType.dbValue == 'PERCENTAGE' ? '%' : '',
+          ),
           style: AppTextStyles.caption.copyWith(color: AppColors.muted),
         ),
         trailing: Row(
@@ -95,12 +121,20 @@ class _ServiceTile extends StatelessWidget {
             if (!service.active) ...[
               const SizedBox(width: AppSpacing.sm),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 2,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.warningBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                child: Text('Inactive', style: AppTextStyles.caption.copyWith(color: AppColors.warning)),
+                child: Text(
+                  context.l10n.invInactive,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.warning,
+                  ),
+                ),
               ),
             ],
           ],

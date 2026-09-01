@@ -10,6 +10,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'staff_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<void> showStaffInviteSheet(BuildContext context) {
   return showModalBottomSheet(
@@ -60,10 +61,9 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
       _foundUserId = null;
     });
     try {
-      final userId = await ref.read(staffRepositoryProvider).findInvitableUserId(
-            businessId: businessId,
-            email: email,
-          );
+      final userId = await ref
+          .read(staffRepositoryProvider)
+          .findInvitableUserId(businessId: businessId, email: email);
       if (mounted) {
         setState(() {
           _searched = true;
@@ -71,7 +71,7 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -86,7 +86,9 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
       _error = null;
     });
     try {
-      await ref.read(staffRepositoryProvider).inviteMember(
+      await ref
+          .read(staffRepositoryProvider)
+          .inviteMember(
             businessId: businessId,
             userId: _foundUserId!,
             role: _role.dbValue,
@@ -94,7 +96,7 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
       ref.invalidate(staffMembersProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _inviting = false);
     }
@@ -102,10 +104,13 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final myRole = ref.watch(currentMembershipProvider)?.role ?? BusinessRole.staff;
+    final myRole =
+        ref.watch(currentMembershipProvider)?.role ?? BusinessRole.staff;
     final assignableRoles = myRole == BusinessRole.owner
         ? BusinessRole.values
-        : BusinessRole.values.where((r) => r != BusinessRole.owner && r != BusinessRole.admin).toList();
+        : BusinessRole.values
+              .where((r) => r != BusinessRole.owner && r != BusinessRole.admin)
+              .toList();
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -115,14 +120,17 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Invite staff', style: AppTextStyles.headline),
+            Text(context.l10n.staffInviteTitle, style: AppTextStyles.headline),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'They must already have an account. Enter their email to look them up.',
+              context.l10n.staffInviteSubtitle,
               style: AppTextStyles.body.copyWith(color: AppColors.muted),
             ),
             const SizedBox(height: AppSpacing.lg),
-            if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: AppSpacing.lg)],
+            if (_error != null) ...[
+              ErrorBanner(message: _error!),
+              const SizedBox(height: AppSpacing.lg),
+            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -130,38 +138,67 @@ class _StaffInviteSheetState extends ConsumerState<_StaffInviteSheet> {
                   child: TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.authEmailLabel,
+                    ),
                     onSubmitted: (_) => _search(),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                PrimaryButton(label: 'Find', onPressed: _search, loading: _searching, expand: false),
+                PrimaryButton(
+                  label: context.l10n.staffFind,
+                  onPressed: _search,
+                  loading: _searching,
+                  expand: false,
+                ),
               ],
             ),
             if (_searched) ...[
               const SizedBox(height: AppSpacing.lg),
               if (_foundUserId == null)
                 Text(
-                  'No account found with this email. They need to sign up first.',
+                  context.l10n.staffNoAccountFound,
                   style: AppTextStyles.body.copyWith(color: AppColors.warning),
                 )
               else ...[
                 Row(
                   children: [
-                    const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+                    const Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
                     const SizedBox(width: AppSpacing.xs),
-                    Text('Account found', style: AppTextStyles.bodyStrong),
+                    Text(
+                      context.l10n.staffAccountFound,
+                      style: AppTextStyles.bodyStrong,
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<BusinessRole>(
-                  initialValue: assignableRoles.contains(_role) ? _role : assignableRoles.first,
-                  decoration: const InputDecoration(labelText: 'Role'),
-                  items: assignableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r.label))).toList(),
+                  initialValue: assignableRoles.contains(_role)
+                      ? _role
+                      : assignableRoles.first,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.staffRoleLabel,
+                  ),
+                  items: assignableRoles
+                      .map(
+                        (r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(r.label(context.l10n)),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (r) => setState(() => _role = r ?? _role),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                PrimaryButton(label: 'Invite', onPressed: _invite, loading: _inviting),
+                PrimaryButton(
+                  label: context.l10n.staffInviteAction,
+                  onPressed: _invite,
+                  loading: _inviting,
+                ),
               ],
             ],
           ],

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/errors/friendly_error.dart';
 import '../../../core/widgets/error_banner.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../l10n/l10n_extensions.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'auth_providers.dart';
@@ -38,7 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
-      await ref.read(authRepositoryProvider).signInWithPassword(
+      await ref
+          .read(authRepositoryProvider)
+          .signInWithPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -46,7 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // listener once currentUserProvider updates.
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,10 +69,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Beauty Clinic POS', style: AppTextStyles.displayMedium),
+                  Text(
+                    context.l10n.appTitle,
+                    style: AppTextStyles.displayMedium,
+                  ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Sign in to your business',
+                    context.l10n.authLoginTagline,
                     style: AppTextStyles.body,
                   ),
                   const SizedBox(height: AppSpacing.xxl),
@@ -81,8 +87,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                    decoration: InputDecoration(
+                      labelText: context.l10n.authEmailLabel,
+                    ),
+                    validator: (v) => (v == null || !v.contains('@'))
+                        ? context.l10n.authEmailInvalid
+                        : null,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   TextFormField(
@@ -90,32 +100,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     obscureText: _obscurePassword,
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: context.l10n.authPasswordLabel,
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? context.l10n.authPasswordRequired
+                        : null,
                     onFieldSubmitted: (_) => _submit(),
                   ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: _loading ? null : () => context.push('/forgot-password'),
-                      child: const Text('Forgot password?'),
+                      onPressed: _loading
+                          ? null
+                          : () => context.push('/forgot-password'),
+                      child: Text(context.l10n.authForgotPassword),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  PrimaryButton(label: 'Sign in', onPressed: _submit, loading: _loading),
+                  PrimaryButton(
+                    label: context.l10n.authSignIn,
+                    onPressed: _submit,
+                    loading: _loading,
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Don't have a business account yet?", style: AppTextStyles.caption),
+                      Text(
+                        context.l10n.authNoAccountYet,
+                        style: AppTextStyles.caption,
+                      ),
                       TextButton(
-                        onPressed: _loading ? null : () => context.push('/sign-up'),
-                        child: const Text('Create one'),
+                        onPressed: _loading
+                            ? null
+                            : () => context.push('/sign-up'),
+                        child: Text(context.l10n.authCreateOne),
                       ),
                     ],
                   ),

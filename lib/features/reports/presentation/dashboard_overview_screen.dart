@@ -10,6 +10,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'reports_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 /// The "Overview" tab's real-metrics content (Day 5), replacing the
 /// static placeholder that stood in for it through Days 1-4.
@@ -25,16 +26,17 @@ class DashboardOverviewScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Overview', style: AppTextStyles.displayMedium),
+          Text(context.l10n.navOverview, style: AppTextStyles.displayMedium),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            "Today's business at a glance.",
+            context.l10n.reportsTodayTagline,
             style: AppTextStyles.body.copyWith(color: AppColors.muted),
           ),
           const SizedBox(height: AppSpacing.xl),
           summaryAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => ErrorBanner(message: friendlyError(err)),
+            error: (err, _) =>
+                ErrorBanner(message: friendlyError(err, context.l10n)),
             data: (summary) => _OverviewMetrics(summary: summary),
           ),
         ],
@@ -54,13 +56,25 @@ class _OverviewMetrics extends StatelessWidget {
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,
       children: [
-        _MetricTile(label: "Today's sales", value: formatMoney(summary.revenue), sublabel: '${summary.salesCount} sale${summary.salesCount == 1 ? '' : 's'}'),
-        _MetricTile(label: 'Commission', value: formatMoney(summary.commissionTotal)),
-        _MetricTile(label: 'Expenses', value: formatMoney(summary.expenseTotal)),
         _MetricTile(
-          label: 'Estimated profit',
+          label: context.l10n.reportsTodaySales,
+          value: formatMoney(summary.revenue),
+          sublabel: context.l10n.reportsSalesCount(summary.salesCount),
+        ),
+        _MetricTile(
+          label: context.l10n.reportsCommission,
+          value: formatMoney(summary.commissionTotal),
+        ),
+        _MetricTile(
+          label: context.l10n.reportsExpenses,
+          value: formatMoney(summary.expenseTotal),
+        ),
+        _MetricTile(
+          label: context.l10n.reportsEstimatedProfit,
           value: formatMoney(summary.profit),
-          valueColor: summary.profit < Decimal.zero ? AppColors.danger : AppColors.success,
+          valueColor: summary.profit < Decimal.zero
+              ? AppColors.danger
+              : AppColors.success,
         ),
       ],
     );
@@ -73,7 +87,12 @@ class _MetricTile extends StatelessWidget {
   final String? sublabel;
   final Color? valueColor;
 
-  const _MetricTile({required this.label, required this.value, this.sublabel, this.valueColor});
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    this.sublabel,
+    this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +104,10 @@ class _MetricTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.muted)),
+              Text(
+                label,
+                style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+              ),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 value,
@@ -95,7 +117,10 @@ class _MetricTile extends StatelessWidget {
               ),
               if (sublabel != null) ...[
                 const SizedBox(height: 2),
-                Text(sublabel!, style: AppTextStyles.caption.copyWith(color: AppColors.muted)),
+                Text(
+                  sublabel!,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                ),
               ],
             ],
           ),

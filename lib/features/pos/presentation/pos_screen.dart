@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/currency_formatter.dart';
+import '../../../l10n/l10n_extensions.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
@@ -60,15 +61,31 @@ class _CartBar extends ConsumerWidget {
               builder: (_) => const SizedBox(height: 640, child: CartPanel()),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
               child: Row(
                 children: [
-                  Text('$itemCount item${itemCount == 1 ? '' : 's'}',
-                      style: AppTextStyles.bodyStrong.copyWith(color: Colors.white)),
+                  Text(
+                    context.l10n.posCartItemCount(itemCount),
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
                   const Spacer(),
-                  Text(formatMoney(cart.total), style: AppTextStyles.bodyStrong.copyWith(color: Colors.white)),
+                  Text(
+                    formatMoney(cart.total),
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
                   const SizedBox(width: AppSpacing.sm),
-                  const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ],
               ),
             ),

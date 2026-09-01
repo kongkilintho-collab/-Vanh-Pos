@@ -12,6 +12,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'audit_log_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 const _actions = [
   'CREATE',
@@ -52,7 +53,9 @@ class AuditLogScreen extends ConsumerWidget {
               children: [
                 DateRangeFilterBar(
                   selection: filter.range,
-                  onChanged: (r) => ref.read(auditLogFilterProvider.notifier).state = filter.copyWith(range: r),
+                  onChanged: (r) =>
+                      ref.read(auditLogFilterProvider.notifier).state = filter
+                          .copyWith(range: r),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Row(
@@ -61,13 +64,24 @@ class AuditLogScreen extends ConsumerWidget {
                       child: DropdownButtonFormField<String?>(
                         initialValue: filter.action,
                         isDense: true,
-                        decoration: const InputDecoration(labelText: 'Action'),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.auditActionLabel,
+                        ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('All actions')),
-                          for (final a in _actions) DropdownMenuItem(value: a, child: Text(a)),
+                          DropdownMenuItem(
+                            value: null,
+                            child: Text(context.l10n.auditAllActions),
+                          ),
+                          for (final a in _actions)
+                            DropdownMenuItem(value: a, child: Text(a)),
                         ],
-                        onChanged: (v) => ref.read(auditLogFilterProvider.notifier).state =
-                            filter.copyWith(action: v, clearAction: v == null),
+                        onChanged: (v) =>
+                            ref
+                                .read(auditLogFilterProvider.notifier)
+                                .state = filter.copyWith(
+                              action: v,
+                              clearAction: v == null,
+                            ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
@@ -75,13 +89,24 @@ class AuditLogScreen extends ConsumerWidget {
                       child: DropdownButtonFormField<String?>(
                         initialValue: filter.entityType,
                         isDense: true,
-                        decoration: const InputDecoration(labelText: 'Entity'),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.auditEntityLabel,
+                        ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('All entities')),
-                          for (final e in _entityTypes) DropdownMenuItem(value: e, child: Text(e)),
+                          DropdownMenuItem(
+                            value: null,
+                            child: Text(context.l10n.auditAllEntities),
+                          ),
+                          for (final e in _entityTypes)
+                            DropdownMenuItem(value: e, child: Text(e)),
                         ],
-                        onChanged: (v) => ref.read(auditLogFilterProvider.notifier).state =
-                            filter.copyWith(entityType: v, clearEntityType: v == null),
+                        onChanged: (v) =>
+                            ref
+                                .read(auditLogFilterProvider.notifier)
+                                .state = filter.copyWith(
+                              entityType: v,
+                              clearEntityType: v == null,
+                            ),
                       ),
                     ),
                   ],
@@ -93,19 +118,34 @@ class AuditLogScreen extends ConsumerWidget {
             child: logsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: ErrorBanner(message: friendlyError(err, context.l10n)),
+                ),
               ),
               data: (logs) {
                 if (logs.isEmpty) {
                   return Center(
-                    child: Text('No audit events for this filter.', style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+                    child: Text(
+                      context.l10n.auditEmptyState,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    ),
                   );
                 }
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xl),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.xl,
+                  ),
                   itemCount: logs.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (context, index) => _AuditLogTile(log: logs[index]),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, index) =>
+                      _AuditLogTile(log: logs[index]),
                 );
               },
             ),
@@ -122,30 +162,40 @@ class _AuditLogTile extends StatelessWidget {
   const _AuditLogTile({required this.log});
 
   Color _actionColor() => switch (log.action) {
-        'DELETE' || 'VOID' => AppColors.danger,
-        'REFUND' || 'SETTINGS_CHANGE' => AppColors.warning,
-        'PERMISSION_CHANGE' => AppColors.info,
-        _ => AppColors.success,
-      };
+    'DELETE' || 'VOID' => AppColors.danger,
+    'REFUND' || 'SETTINGS_CHANGE' => AppColors.warning,
+    'PERMISSION_CHANGE' => AppColors.info,
+    _ => AppColors.success,
+  };
 
   static const _encoder = JsonEncoder.withIndent('  ');
 
   @override
   Widget build(BuildContext context) {
-    final hasDetail = log.oldData != null || log.newData != null || log.metadata != null;
+    final hasDetail =
+        log.oldData != null || log.newData != null || log.metadata != null;
     return Card(
       child: ExpansionTile(
         enabled: hasDetail,
-        tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 0),
+        tilePadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: 0,
+        ),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 1),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 1,
+              ),
               decoration: BoxDecoration(
                 color: _actionColor().withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
-              child: Text(log.action, style: AppTextStyles.caption.copyWith(color: _actionColor())),
+              child: Text(
+                log.action,
+                style: AppTextStyles.caption.copyWith(color: _actionColor()),
+              ),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
@@ -158,19 +208,39 @@ class _AuditLogTile extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          '${log.actorName ?? 'System'} · ${DateFormat('MMM d, y · h:mm a').format(log.createdAt.toLocal())}',
+          '${log.actorName ?? context.l10n.auditSystemActor} · ${DateFormat('MMM d, y · h:mm a').format(log.createdAt.toLocal())}',
           style: AppTextStyles.caption.copyWith(color: AppColors.muted),
         ),
         children: [
           if (hasDetail)
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                0,
+                AppSpacing.lg,
+                AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (log.oldData != null) _JsonBlock(label: 'Before', data: log.oldData!, encoder: _encoder),
-                  if (log.newData != null) _JsonBlock(label: 'After', data: log.newData!, encoder: _encoder),
-                  if (log.metadata != null) _JsonBlock(label: 'Details', data: log.metadata!, encoder: _encoder),
+                  if (log.oldData != null)
+                    _JsonBlock(
+                      label: context.l10n.auditBefore,
+                      data: log.oldData!,
+                      encoder: _encoder,
+                    ),
+                  if (log.newData != null)
+                    _JsonBlock(
+                      label: context.l10n.auditAfter,
+                      data: log.newData!,
+                      encoder: _encoder,
+                    ),
+                  if (log.metadata != null)
+                    _JsonBlock(
+                      label: context.l10n.auditDetails,
+                      data: log.metadata!,
+                      encoder: _encoder,
+                    ),
                 ],
               ),
             ),
@@ -185,7 +255,11 @@ class _JsonBlock extends StatelessWidget {
   final Map<String, dynamic> data;
   final JsonEncoder encoder;
 
-  const _JsonBlock({required this.label, required this.data, required this.encoder});
+  const _JsonBlock({
+    required this.label,
+    required this.data,
+    required this.encoder,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +268,10 @@ class _JsonBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTextStyles.captionStrong.copyWith(color: AppColors.muted)),
+          Text(
+            label,
+            style: AppTextStyles.captionStrong.copyWith(color: AppColors.muted),
+          ),
           const SizedBox(height: 2),
           Container(
             width: double.infinity,

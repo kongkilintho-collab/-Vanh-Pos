@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/errors/friendly_error.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/error_banner.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/business_role.dart';
 import '../../../shared/models/sale_item.dart';
 import '../../../theme/app_colors.dart';
@@ -13,18 +14,19 @@ import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../../pos/presentation/pos_providers.dart';
 import 'sales_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Color statusColorFor(String status) => switch (status) {
-      'VOIDED' => AppColors.danger,
-      'REFUNDED' => AppColors.warning,
-      _ => AppColors.success,
-    };
+  'VOIDED' => AppColors.danger,
+  'REFUNDED' => AppColors.warning,
+  _ => AppColors.success,
+};
 
-String statusLabelFor(String status) => switch (status) {
-      'VOIDED' => 'Voided',
-      'REFUNDED' => 'Refunded',
-      _ => 'Completed',
-    };
+String statusLabelFor(String status, AppLocalizations l10n) => switch (status) {
+  'VOIDED' => l10n.salesStatusVoided,
+  'REFUNDED' => l10n.salesStatusRefunded,
+  _ => l10n.salesStatusCompleted,
+};
 
 class SaleDetailScreen extends ConsumerStatefulWidget {
   final String saleId;
@@ -44,14 +46,13 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Void this sale?'),
+          title: Text(context.l10n.salesVoidConfirmTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'This reverses stock and commissions for this sale and marks its '
-                'payment refunded. This cannot be undone.',
+                context.l10n.salesVoidConfirmBody,
                 style: AppTextStyles.body.copyWith(color: AppColors.muted),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -60,15 +61,22 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
                 autofocus: true,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Reason', hintText: 'Why is this sale being voided?'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.salesVoidReasonLabel,
+                  hintText: context.l10n.salesVoidReasonHint,
+                ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.commonCancel),
+            ),
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(reasonController.text.trim()),
-              child: const Text('Void sale'),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(reasonController.text.trim()),
+              child: Text(context.l10n.salesVoidAction),
             ),
           ],
         );
@@ -79,7 +87,9 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
 
     setState(() => _voiding = true);
     try {
-      await ref.read(posRepositoryProvider).voidSale(
+      await ref
+          .read(posRepositoryProvider)
+          .voidSale(
             businessId: businessId,
             saleId: widget.saleId,
             reason: reason,
@@ -87,10 +97,14 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
       ref.invalidate(saleDetailProvider(widget.saleId));
       ref.invalidate(salesListProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sale voided.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.salesVoidedSnackbar)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendlyError(e, context.l10n))));
     } finally {
       if (mounted) setState(() => _voiding = false);
     }
@@ -103,11 +117,19 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
     final canVoid = (membership?.role.isAtLeast(BusinessRole.manager)) ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: Text(detailAsync.valueOrNull?.sale.receiptNumber ?? 'Sale')),
+      appBar: AppBar(
+        title: Text(
+          detailAsync.valueOrNull?.sale.receiptNumber ??
+              context.l10n.salesDetailFallbackTitle,
+        ),
+      ),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
-          child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: ErrorBanner(message: friendlyError(err, context.l10n)),
+          ),
         ),
         data: (detail) {
           final sale = detail.sale;
@@ -117,49 +139,99 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
             padding: const EdgeInsets.all(AppSpacing.xl),
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
                 decoration: BoxDecoration(
                   color: statusColorFor(sale.status).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Text(
-                  statusLabelFor(sale.status),
-                  style: AppTextStyles.captionStrong.copyWith(color: statusColorFor(sale.status)),
+                  statusLabelFor(sale.status, context.l10n),
+                  style: AppTextStyles.captionStrong.copyWith(
+                    color: statusColorFor(sale.status),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(DateFormat('MMM d, y · h:mm a').format(sale.createdAt.toLocal()),
-                  style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+              Text(
+                DateFormat(
+                  'MMM d, y · h:mm a',
+                ).format(sale.createdAt.toLocal()),
+                style: AppTextStyles.body.copyWith(color: AppColors.muted),
+              ),
               const Divider(height: AppSpacing.xxl),
               for (final item in detail.items) _SaleItemRow(item: item),
               const Divider(height: AppSpacing.xxl),
-              _Row(label: 'Subtotal', value: formatMoney(sale.subtotal)),
-              if (sale.discountAmount.toDouble() > 0) _Row(label: 'Discount', value: '-${formatMoney(sale.discountAmount)}'),
-              if (sale.taxAmount.toDouble() > 0) _Row(label: 'Tax', value: formatMoney(sale.taxAmount)),
-              _Row(label: 'Total', value: formatMoney(sale.totalAmount), strong: true),
+              _Row(
+                label: context.l10n.posSubtotal,
+                value: formatMoney(sale.subtotal),
+              ),
+              if (sale.discountAmount.toDouble() > 0)
+                _Row(
+                  label: context.l10n.posDiscount,
+                  value: '-${formatMoney(sale.discountAmount)}',
+                ),
+              if (sale.taxAmount.toDouble() > 0)
+                _Row(
+                  label: context.l10n.posTax,
+                  value: formatMoney(sale.taxAmount),
+                ),
+              _Row(
+                label: context.l10n.posTotal,
+                value: formatMoney(sale.totalAmount),
+                strong: true,
+              ),
               const SizedBox(height: AppSpacing.sm),
-              _Row(label: 'Paid', value: formatMoney(sale.paidAmount)),
-              _Row(label: 'Change', value: formatMoney(sale.changeAmount)),
+              _Row(
+                label: context.l10n.salesRowPaid,
+                value: formatMoney(sale.paidAmount),
+              ),
+              _Row(
+                label: context.l10n.posChange,
+                value: formatMoney(sale.changeAmount),
+              ),
               if (isVoided) ...[
                 const Divider(height: AppSpacing.xxl),
-                Text('Void details', style: AppTextStyles.bodyStrong),
+                Text(
+                  context.l10n.salesVoidDetailsTitle,
+                  style: AppTextStyles.bodyStrong,
+                ),
                 const SizedBox(height: AppSpacing.xs),
-                if (sale.voidReason != null) Text(sale.voidReason!, style: AppTextStyles.body),
+                if (sale.voidReason != null)
+                  Text(sale.voidReason!, style: AppTextStyles.body),
                 if (sale.voidedAt != null)
                   Text(
-                    DateFormat('MMM d, y · h:mm a').format(sale.voidedAt!.toLocal()),
-                    style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                    DateFormat(
+                      'MMM d, y · h:mm a',
+                    ).format(sale.voidedAt!.toLocal()),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.muted,
+                    ),
                   ),
               ],
               if (!isVoided && canVoid) ...[
                 const SizedBox(height: AppSpacing.xl),
                 FilledButton.tonalIcon(
-                  onPressed: _voiding ? null : () => _confirmAndVoid(membership!.business.id),
+                  onPressed: _voiding
+                      ? null
+                      : () => _confirmAndVoid(membership!.business.id),
                   icon: _voiding
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.block_outlined, size: 18),
-                  label: Text(_voiding ? 'Voiding…' : 'Void sale'),
-                  style: FilledButton.styleFrom(foregroundColor: AppColors.danger),
+                  label: Text(
+                    _voiding
+                        ? context.l10n.salesVoiding
+                        : context.l10n.salesVoidAction,
+                  ),
+                  style: FilledButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                  ),
                 ),
               ],
             ],
@@ -209,7 +281,10 @@ class _Row extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: style.copyWith(color: strong ? null : AppColors.muted)),
+          Text(
+            label,
+            style: style.copyWith(color: strong ? null : AppColors.muted),
+          ),
           Text(value, style: style),
         ],
       ),

@@ -12,6 +12,7 @@ import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'expense_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<void> showExpenseFormSheet(BuildContext context, {Expense? existing}) {
   return showModalBottomSheet(
@@ -33,10 +34,15 @@ class _ExpenseFormSheet extends ConsumerStatefulWidget {
 
 class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final _amountController = TextEditingController(text: widget.existing?.amount.toString() ?? '');
-  late final _descriptionController = TextEditingController(text: widget.existing?.description ?? '');
+  late final _amountController = TextEditingController(
+    text: widget.existing?.amount.toString() ?? '',
+  );
+  late final _descriptionController = TextEditingController(
+    text: widget.existing?.description ?? '',
+  );
   String? _categoryId;
-  late PaymentMethod _paymentMethod = widget.existing?.paymentMethod ?? PaymentMethod.cash;
+  late PaymentMethod _paymentMethod =
+      widget.existing?.paymentMethod ?? PaymentMethod.cash;
   late DateTime _expenseDate = widget.existing?.expenseDate ?? DateTime.now();
 
   bool _loading = false;
@@ -98,7 +104,7 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -119,7 +125,12 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(isEditing ? 'Edit expense' : 'Add expense', style: AppTextStyles.headline),
+              Text(
+                isEditing
+                    ? context.l10n.expensesEditTitle
+                    : context.l10n.expensesAddTitle,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.lg),
               if (_error != null) ...[
                 ErrorBanner(message: _error!),
@@ -127,26 +138,40 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
               ],
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Amount (LAK)'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: context.l10n.expensesAmountLak,
+                ),
                 validator: (v) {
                   final parsed = Decimal.tryParse(v?.trim() ?? '');
-                  if (parsed == null || parsed <= Decimal.zero) return 'Enter a positive amount';
+                  if (parsed == null || parsed <= Decimal.zero)
+                    return context.l10n.expensesPositiveAmountRequired;
                   return null;
                 },
               ),
               const SizedBox(height: AppSpacing.md),
               categoriesAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (err, _) => ErrorBanner(message: friendlyError(err)),
+                error: (err, _) =>
+                    ErrorBanner(message: friendlyError(err, context.l10n)),
                 data: (categories) {
-                  final options = categories.where((c) => c.active || c.id == _categoryId).toList();
+                  final options = categories
+                      .where((c) => c.active || c.id == _categoryId)
+                      .toList();
                   return DropdownButtonFormField<String?>(
                     initialValue: _categoryId,
-                    decoration: const InputDecoration(labelText: 'Category (optional)'),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.expensesCategoryOptionalLabel,
+                    ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('No category')),
-                      for (final c in options) DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text(context.l10n.expensesNoCategory),
+                      ),
+                      for (final c in options)
+                        DropdownMenuItem(value: c.id, child: Text(c.name)),
                     ],
                     onChanged: (v) => setState(() => _categoryId = v),
                   );
@@ -155,27 +180,45 @@ class _ExpenseFormSheetState extends ConsumerState<_ExpenseFormSheet> {
               const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<PaymentMethod>(
                 initialValue: _paymentMethod,
-                decoration: const InputDecoration(labelText: 'Payment method'),
-                items: PaymentMethod.values.map((m) => DropdownMenuItem(value: m, child: Text(m.label))).toList(),
-                onChanged: (m) => setState(() => _paymentMethod = m ?? _paymentMethod),
+                decoration: InputDecoration(
+                  labelText: context.l10n.posPaymentMethod,
+                ),
+                items: PaymentMethod.values
+                    .map(
+                      (m) => DropdownMenuItem(
+                        value: m,
+                        child: Text(m.label(context.l10n)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (m) =>
+                    setState(() => _paymentMethod = m ?? _paymentMethod),
               ),
               const SizedBox(height: AppSpacing.md),
               InkWell(
                 onTap: _pickDate,
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Date'),
-                  child: Text('${_expenseDate.year}-${_expenseDate.month.toString().padLeft(2, '0')}-${_expenseDate.day.toString().padLeft(2, '0')}'),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.expensesDateLabel,
+                  ),
+                  child: Text(
+                    '${_expenseDate.year}-${_expenseDate.month.toString().padLeft(2, '0')}-${_expenseDate.day.toString().padLeft(2, '0')}',
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.expensesDescriptionOptionalLabel,
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                label: isEditing ? 'Save changes' : 'Add expense',
+                label: isEditing
+                    ? context.l10n.commonSaveChanges
+                    : context.l10n.expensesAddTitle,
                 onPressed: _submit,
                 loading: _loading,
               ),

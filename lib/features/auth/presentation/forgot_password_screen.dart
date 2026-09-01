@@ -7,12 +7,14 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'auth_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -35,11 +37,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       _error = null;
     });
     try {
-      await ref.read(authRepositoryProvider).sendPasswordResetEmail(_emailController.text.trim());
+      await ref
+          .read(authRepositoryProvider)
+          .sendPasswordResetEmail(_emailController.text.trim());
       if (mounted) setState(() => _sent = true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -60,10 +64,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     children: [
                       const Icon(Icons.mark_email_read_outlined, size: 40),
                       const SizedBox(height: AppSpacing.lg),
-                      Text('Check your email', style: AppTextStyles.headline, textAlign: TextAlign.center),
+                      Text(
+                        context.l10n.authCheckYourEmail,
+                        style: AppTextStyles.headline,
+                        textAlign: TextAlign.center,
+                      ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'If an account exists for ${_emailController.text.trim()}, a reset link has been sent.',
+                        context.l10n.authResetLinkSentTo(
+                          _emailController.text.trim(),
+                        ),
                         style: AppTextStyles.body,
                         textAlign: TextAlign.center,
                       ),
@@ -75,9 +85,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Reset your password', style: AppTextStyles.displayMedium),
+                        Text(
+                          context.l10n.authResetPasswordTitle,
+                          style: AppTextStyles.displayMedium,
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text("We'll email you a reset link.", style: AppTextStyles.body),
+                        Text(
+                          context.l10n.authResetPasswordSubtitle,
+                          style: AppTextStyles.body,
+                        ),
                         const SizedBox(height: AppSpacing.xxl),
                         if (_error != null) ...[
                           ErrorBanner(message: _error!),
@@ -86,12 +102,20 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'Email'),
-                          validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.authEmailLabel,
+                          ),
+                          validator: (v) => (v == null || !v.contains('@'))
+                              ? context.l10n.authEmailInvalid
+                              : null,
                           onFieldSubmitted: (_) => _submit(),
                         ),
                         const SizedBox(height: AppSpacing.xl),
-                        PrimaryButton(label: 'Send reset link', onPressed: _submit, loading: _loading),
+                        PrimaryButton(
+                          label: context.l10n.authSendResetLink,
+                          onPressed: _submit,
+                          loading: _loading,
+                        ),
                       ],
                     ),
                   ),

@@ -10,6 +10,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'customer_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<void> showCustomerFormSheet(BuildContext context, {Customer? existing}) {
   return showModalBottomSheet(
@@ -31,9 +32,15 @@ class _CustomerFormSheet extends ConsumerStatefulWidget {
 
 class _CustomerFormSheetState extends ConsumerState<_CustomerFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.existing?.name ?? '');
-  late final _phoneController = TextEditingController(text: widget.existing?.phone ?? '');
-  late final _notesController = TextEditingController(text: widget.existing?.notes ?? '');
+  late final _nameController = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
+  late final _phoneController = TextEditingController(
+    text: widget.existing?.phone ?? '',
+  );
+  late final _notesController = TextEditingController(
+    text: widget.existing?.notes ?? '',
+  );
   String? _gender;
 
   bool _loading = false;
@@ -85,11 +92,12 @@ class _CustomerFormSheetState extends ConsumerState<_CustomerFormSheet> {
       }
 
       ref.invalidate(customersListProvider);
-      if (widget.existing != null) ref.invalidate(customerDetailProvider(widget.existing!.id));
+      if (widget.existing != null)
+        ref.invalidate(customerDetailProvider(widget.existing!.id));
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -108,7 +116,12 @@ class _CustomerFormSheetState extends ConsumerState<_CustomerFormSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(isEditing ? 'Edit customer' : 'Add customer', style: AppTextStyles.headline),
+              Text(
+                isEditing
+                    ? context.l10n.customersEditTitle
+                    : context.l10n.customersAddTitle,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.lg),
               if (_error != null) ...[
                 ErrorBanner(message: _error!),
@@ -116,36 +129,60 @@ class _CustomerFormSheetState extends ConsumerState<_CustomerFormSheet> {
               ],
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersNameLabel,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.commonRequired
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.authPhoneOptionalLabel,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String?>(
                 initialValue: _gender,
-                decoration: const InputDecoration(labelText: 'Gender (optional)'),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Not specified')),
-                  DropdownMenuItem(value: 'MALE', child: Text('Male')),
-                  DropdownMenuItem(value: 'FEMALE', child: Text('Female')),
-                  DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersGenderOptionalLabel,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(context.l10n.commonNotSpecified),
+                  ),
+                  DropdownMenuItem(
+                    value: 'MALE',
+                    child: Text(context.l10n.customersGenderMale),
+                  ),
+                  DropdownMenuItem(
+                    value: 'FEMALE',
+                    child: Text(context.l10n.customersGenderFemale),
+                  ),
+                  DropdownMenuItem(
+                    value: 'OTHER',
+                    child: Text(context.l10n.customersGenderOther),
+                  ),
                 ],
                 onChanged: (v) => setState(() => _gender = v),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _notesController,
-                decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersNotesOptionalLabel,
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                label: isEditing ? 'Save changes' : 'Add customer',
+                label: isEditing
+                    ? context.l10n.commonSaveChanges
+                    : context.l10n.customersAddTitle,
                 onPressed: _submit,
                 loading: _loading,
               ),

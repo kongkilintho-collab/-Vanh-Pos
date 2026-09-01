@@ -19,6 +19,7 @@ import 'cart_controller.dart';
 import 'customer_picker_sheet.dart';
 import 'pos_providers.dart';
 import 'receipt_sheet.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class CartPanel extends ConsumerStatefulWidget {
   const CartPanel({super.key});
@@ -40,7 +41,7 @@ class _CartPanelState extends ConsumerState<CartPanel> {
     // server-side regardless (see 0024_complete_sale_price_and_payment_integrity.sql),
     // so this is not the security boundary, just an earlier, friendlier error.
     if (cart.paidAmount < cart.total) {
-      setState(() => _error = 'Payment amount cannot be less than the sale total.');
+      setState(() => _error = context.l10n.posPaymentInsufficient);
       return;
     }
 
@@ -80,11 +81,11 @@ class _CartPanelState extends ConsumerState<CartPanel> {
         lines: lines,
         customer: customer,
         paymentMethod: paymentMethod,
-        cashierName: user?.email ?? 'Cashier',
+        cashierName: user?.email ?? context.l10n.commonCashier,
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -108,23 +109,28 @@ class _CartPanelState extends ConsumerState<CartPanel> {
               }
             },
             icon: const Icon(Icons.person_outline, size: 18),
-            label: Text(cart.customer?.name ?? 'Walk-in customer'),
+            label: Text(cart.customer?.name ?? context.l10n.posWalkInCustomer),
           ),
         ),
         Expanded(
           child: cart.isEmpty
               ? Center(
                   child: Text(
-                    'Cart is empty\nTap a service or product to add it',
+                    '${context.l10n.posCartEmptyTitle}\n${context.l10n.posCartEmptySubtitle}',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.body.copyWith(color: AppColors.muted),
                   ),
                 )
               : ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
                   children: [
                     for (final line in cart.lines)
-                      _CartLineTile(line: line, staff: staffAsync.valueOrNull ?? const []),
+                      _CartLineTile(
+                        line: line,
+                        staff: staffAsync.valueOrNull ?? const [],
+                      ),
                   ],
                 ),
         ),
@@ -138,20 +144,25 @@ class _CartPanelState extends ConsumerState<CartPanel> {
                 ErrorBanner(message: _error!),
                 const SizedBox(height: AppSpacing.md),
               ],
-              _TotalsRow(label: 'Subtotal', value: cart.subtotal),
+              _TotalsRow(label: context.l10n.posSubtotal, value: cart.subtotal),
               _DiscountRow(),
-              if (cart.taxEnabled) _TotalsRow(label: 'Tax', value: cart.taxAmount),
+              if (cart.taxEnabled)
+                _TotalsRow(label: context.l10n.posTax, value: cart.taxAmount),
               const SizedBox(height: AppSpacing.xs),
-              _TotalsRow(label: 'Total', value: cart.total, strong: true),
+              _TotalsRow(
+                label: context.l10n.posTotal,
+                value: cart.total,
+                strong: true,
+              ),
               const SizedBox(height: AppSpacing.md),
               _PaymentMethodSelector(),
               const SizedBox(height: AppSpacing.sm),
               _PaidAmountField(),
               const SizedBox(height: AppSpacing.xs),
-              _TotalsRow(label: 'Change', value: cart.change),
+              _TotalsRow(label: context.l10n.posChange, value: cart.change),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                label: 'Complete sale',
+                label: context.l10n.posCompleteSale,
                 onPressed: cart.isEmpty ? null : _checkout,
                 loading: _submitting,
               ),
@@ -181,8 +192,13 @@ class _CartLineTile extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Expanded(child: Text(line.name, style: AppTextStyles.bodyStrong)),
-                Text(formatMoney(line.subtotal), style: AppTextStyles.bodyStrong),
+                Expanded(
+                  child: Text(line.name, style: AppTextStyles.bodyStrong),
+                ),
+                Text(
+                  formatMoney(line.subtotal),
+                  style: AppTextStyles.bodyStrong,
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -194,9 +210,13 @@ class _CartLineTile extends ConsumerWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: AppColors.danger,
+                  ),
                   onPressed: () => controller.removeLine(line.key),
-                  tooltip: 'Remove',
+                  tooltip: context.l10n.posRemoveTooltip,
                 ),
               ],
             ),
@@ -205,15 +225,23 @@ class _CartLineTile extends ConsumerWidget {
               DropdownButtonFormField<String?>(
                 initialValue: line.staffId,
                 isDense: true,
-                decoration: const InputDecoration(labelText: 'Staff (for commission)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.posStaffForCommission,
+                ),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('Unassigned')),
-                  for (final s in staff) DropdownMenuItem(value: s.userId, child: Text(s.fullName)),
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(context.l10n.posUnassigned),
+                  ),
+                  for (final s in staff)
+                    DropdownMenuItem(value: s.userId, child: Text(s.fullName)),
                 ],
                 onChanged: (v) => controller.setLineStaff(
                   line.key,
                   v,
-                  v == null ? null : staff.firstWhere((s) => s.userId == v).fullName,
+                  v == null
+                      ? null
+                      : staff.firstWhere((s) => s.userId == v).fullName,
                 ),
               ),
             ],
@@ -256,7 +284,11 @@ class _TotalsRow extends StatelessWidget {
   final Decimal value;
   final bool strong;
 
-  const _TotalsRow({required this.label, required this.value, this.strong = false});
+  const _TotalsRow({
+    required this.label,
+    required this.value,
+    this.strong = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -266,7 +298,10 @@ class _TotalsRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: (strong ? AppTextStyles.bodyStrong : AppTextStyles.body)),
+          Text(
+            label,
+            style: (strong ? AppTextStyles.bodyStrong : AppTextStyles.body),
+          ),
           Text(formatMoney(value), style: style),
         ],
       ),
@@ -296,7 +331,9 @@ class _DiscountRowState extends ConsumerState<_DiscountRow> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text('Discount', style: AppTextStyles.body)),
+        Expanded(
+          child: Text(context.l10n.posDiscount, style: AppTextStyles.body),
+        ),
         SizedBox(
           width: 120,
           child: TextField(
@@ -306,7 +343,9 @@ class _DiscountRowState extends ConsumerState<_DiscountRow> {
             decoration: const InputDecoration(isDense: true, hintText: '0'),
             onChanged: (v) {
               final parsed = Decimal.tryParse(v.trim());
-              ref.read(cartControllerProvider.notifier).setDiscount(parsed ?? Decimal.zero);
+              ref
+                  .read(cartControllerProvider.notifier)
+                  .setDiscount(parsed ?? Decimal.zero);
             },
           ),
         ),
@@ -321,10 +360,16 @@ class _PaymentMethodSelector extends ConsumerWidget {
     final cart = ref.watch(cartControllerProvider);
     return DropdownButtonFormField<PaymentMethod>(
       initialValue: cart.paymentMethod,
-      decoration: const InputDecoration(labelText: 'Payment method'),
-      items: PaymentMethod.values.map((m) => DropdownMenuItem(value: m, child: Text(m.label))).toList(),
+      decoration: InputDecoration(labelText: context.l10n.posPaymentMethod),
+      items: PaymentMethod.values
+          .map(
+            (m) =>
+                DropdownMenuItem(value: m, child: Text(m.label(context.l10n))),
+          )
+          .toList(),
       onChanged: (m) {
-        if (m != null) ref.read(cartControllerProvider.notifier).setPaymentMethod(m);
+        if (m != null)
+          ref.read(cartControllerProvider.notifier).setPaymentMethod(m);
       },
     );
   }
@@ -351,7 +396,9 @@ class _PaidAmountFieldState extends ConsumerState<_PaidAmountField> {
     // Keep the field pre-filled with the exact total (the common case: paid
     // in full) until the cashier explicitly types a different amount.
     if (_lastTotal != cart.total && cart.paidAmount == Decimal.zero) {
-      _controller.text = cart.total == Decimal.zero ? '' : cart.total.toString();
+      _controller.text = cart.total == Decimal.zero
+          ? ''
+          : cart.total.toString();
       ref.read(cartControllerProvider.notifier).setPaidAmount(cart.total);
     }
     _lastTotal = cart.total;
@@ -359,10 +406,12 @@ class _PaidAmountFieldState extends ConsumerState<_PaidAmountField> {
     return TextField(
       controller: _controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: const InputDecoration(labelText: 'Amount paid (LAK)'),
+      decoration: InputDecoration(labelText: context.l10n.posAmountPaidLak),
       onChanged: (v) {
         final parsed = Decimal.tryParse(v.trim());
-        ref.read(cartControllerProvider.notifier).setPaidAmount(parsed ?? Decimal.zero);
+        ref
+            .read(cartControllerProvider.notifier)
+            .setPaidAmount(parsed ?? Decimal.zero);
       },
     );
   }

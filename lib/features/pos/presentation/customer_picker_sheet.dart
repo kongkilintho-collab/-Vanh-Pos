@@ -10,6 +10,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'pos_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<Customer?> showCustomerPickerSheet(BuildContext context) {
   return showModalBottomSheet<Customer>(
@@ -24,7 +25,8 @@ class _CustomerPickerSheet extends ConsumerStatefulWidget {
   const _CustomerPickerSheet();
 
   @override
-  ConsumerState<_CustomerPickerSheet> createState() => _CustomerPickerSheetState();
+  ConsumerState<_CustomerPickerSheet> createState() =>
+      _CustomerPickerSheetState();
 }
 
 class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
@@ -55,10 +57,12 @@ class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
       _error = null;
     });
     try {
-      final results = await ref.read(posRepositoryProvider).searchCustomers(businessId, query);
+      final results = await ref
+          .read(posRepositoryProvider)
+          .searchCustomers(businessId, query);
       if (mounted) setState(() => _results = results);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -74,7 +78,7 @@ class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
           .quickCreateCustomer(businessId: businessId, name: _query.trim());
       if (mounted) Navigator.of(context).pop(customer);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -93,14 +97,17 @@ class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Select customer', style: AppTextStyles.headline),
+              Text(
+                context.l10n.posSelectCustomer,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: _searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search, size: 20),
-                  hintText: 'Search name or phone',
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintText: context.l10n.posSearchNameOrPhone,
                 ),
                 onChanged: _search,
               ),
@@ -114,7 +121,9 @@ class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
                         children: [
                           for (final c in _results ?? const [])
                             ListTile(
-                              leading: const CircleAvatar(child: Icon(Icons.person_outline, size: 18)),
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.person_outline, size: 18),
+                              ),
                               title: Text(c.name),
                               subtitle: c.phone != null ? Text(c.phone!) : null,
                               onTap: () => Navigator.of(context).pop(c),
@@ -123,8 +132,10 @@ class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
                             Padding(
                               padding: const EdgeInsets.all(AppSpacing.lg),
                               child: Text(
-                                'No customers found',
-                                style: AppTextStyles.body.copyWith(color: AppColors.muted),
+                                context.l10n.posNoCustomersFound,
+                                style: AppTextStyles.body.copyWith(
+                                  color: AppColors.muted,
+                                ),
                               ),
                             ),
                         ],
@@ -133,7 +144,7 @@ class _CustomerPickerSheetState extends ConsumerState<_CustomerPickerSheet> {
               if (_query.trim().isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.sm),
                 PrimaryButton(
-                  label: 'Create "${_query.trim()}" as new customer',
+                  label: context.l10n.posCreateAsNewCustomer(_query.trim()),
                   onPressed: _quickCreate,
                   loading: _loading,
                 ),

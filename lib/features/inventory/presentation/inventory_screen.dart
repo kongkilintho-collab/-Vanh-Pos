@@ -14,6 +14,7 @@ import '../../products/presentation/product_providers.dart';
 import 'inventory_providers.dart';
 import 'stock_adjustment_sheet.dart';
 import 'supplier_form_sheet.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -22,7 +23,8 @@ class InventoryScreen extends StatefulWidget {
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProviderStateMixin {
+class _InventoryScreenState extends State<InventoryScreen>
+    with SingleTickerProviderStateMixin {
   late final _tabController = TabController(length: 3, vsync: this);
 
   @override
@@ -39,26 +41,27 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              0,
+            ),
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              tabs: const [
-                Tab(text: 'Stock'),
-                Tab(text: 'Movements'),
-                Tab(text: 'Suppliers'),
+              tabs: [
+                Tab(text: context.l10n.invTabStock),
+                Tab(text: context.l10n.invTabMovements),
+                Tab(text: context.l10n.invTabSuppliers),
               ],
             ),
           ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: const [
-                _StockTab(),
-                _MovementsTab(),
-                _SuppliersTab(),
-              ],
+              children: const [_StockTab(), _MovementsTab(), _SuppliersTab()],
             ),
           ),
         ],
@@ -77,7 +80,10 @@ class _StockTab extends ConsumerWidget {
     return productsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(
-        child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: ErrorBanner(message: friendlyError(err, context.l10n)),
+        ),
       ),
       data: (products) {
         if (products.isEmpty) {
@@ -87,12 +93,19 @@ class _StockTab extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.warehouse_outlined, size: 40, color: AppColors.muted),
+                  const Icon(
+                    Icons.warehouse_outlined,
+                    size: 40,
+                    color: AppColors.muted,
+                  ),
                   const SizedBox(height: AppSpacing.md),
-                  Text('No products yet', style: AppTextStyles.title),
+                  Text(
+                    context.l10n.invNoProductsYetTitle,
+                    style: AppTextStyles.title,
+                  ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Add products in the Products tab to start tracking stock.',
+                    context.l10n.invNoProductsYetSubtitle,
                     style: AppTextStyles.body.copyWith(color: AppColors.muted),
                     textAlign: TextAlign.center,
                   ),
@@ -109,7 +122,12 @@ class _StockTab extends ConsumerWidget {
           children: [
             if (lowStockCount > 0)
               Container(
-                margin: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                margin: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  0,
+                ),
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.warningBg,
@@ -117,12 +135,18 @@ class _StockTab extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_outlined, color: AppColors.warning, size: 18),
+                    const Icon(
+                      Icons.warning_amber_outlined,
+                      color: AppColors.warning,
+                      size: 18,
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        '$lowStockCount product${lowStockCount == 1 ? '' : 's'} at or below its low-stock threshold.',
-                        style: AppTextStyles.body.copyWith(color: AppColors.warning),
+                        context.l10n.invLowStockWarning(lowStockCount),
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.warning,
+                        ),
                       ),
                     ),
                   ],
@@ -130,10 +154,17 @@ class _StockTab extends ConsumerWidget {
               ),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                ),
                 itemCount: products.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (context, index) => _StockTile(product: products[index]),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: AppSpacing.sm),
+                itemBuilder: (context, index) =>
+                    _StockTile(product: products[index]),
               ),
             ),
           ],
@@ -152,9 +183,14 @@ class _StockTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
         leading: CircleAvatar(
-          backgroundColor: product.isLowStock ? AppColors.dangerBg : AppColors.primaryLight,
+          backgroundColor: product.isLowStock
+              ? AppColors.dangerBg
+              : AppColors.primaryLight,
           child: Icon(
             Icons.inventory_2_outlined,
             color: product.isLowStock ? AppColors.danger : AppColors.primary,
@@ -163,20 +199,23 @@ class _StockTile extends StatelessWidget {
         ),
         title: Text(product.name, style: AppTextStyles.bodyStrong),
         subtitle: Text(
-          'Low-stock alert at ${product.minimumStock}',
+          context.l10n.invLowStockAlertAt(product.minimumStock),
           style: AppTextStyles.caption.copyWith(color: AppColors.muted),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${product.stockQuantity} in stock',
-              style: AppTextStyles.bodyStrong.copyWith(color: product.isLowStock ? AppColors.danger : null),
+              context.l10n.invInStock(product.stockQuantity),
+              style: AppTextStyles.bodyStrong.copyWith(
+                color: product.isLowStock ? AppColors.danger : null,
+              ),
             ),
             IconButton(
-              tooltip: 'Adjust stock',
+              tooltip: context.l10n.invAdjustStockTooltip,
               icon: const Icon(Icons.tune, size: 18),
-              onPressed: () => showStockAdjustmentSheet(context, product: product),
+              onPressed: () =>
+                  showStockAdjustmentSheet(context, product: product),
             ),
           ],
         ),
@@ -195,7 +234,10 @@ class _MovementsTab extends ConsumerWidget {
     return movementsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(
-        child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: ErrorBanner(message: friendlyError(err, context.l10n)),
+        ),
       ),
       data: (movements) {
         if (movements.isEmpty) {
@@ -203,7 +245,7 @@ class _MovementsTab extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
               child: Text(
-                'No stock movements yet. Sales and manual adjustments will appear here.',
+                context.l10n.invNoMovementsYet,
                 style: AppTextStyles.body.copyWith(color: AppColors.muted),
                 textAlign: TextAlign.center,
               ),
@@ -215,7 +257,8 @@ class _MovementsTab extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           itemCount: movements.length,
           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-          itemBuilder: (context, index) => _MovementTile(movement: movements[index]),
+          itemBuilder: (context, index) =>
+              _MovementTile(movement: movements[index]),
         );
       },
     );
@@ -233,19 +276,30 @@ class _MovementTile extends StatelessWidget {
     return Card(
       child: ListTile(
         dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
-        title: Text(movement.productName ?? 'Unknown product', style: AppTextStyles.bodyStrong),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
+        title: Text(
+          movement.productName ?? context.l10n.invUnknownProduct,
+          style: AppTextStyles.bodyStrong,
+        ),
         subtitle: Text(
           [
-            movement.movementType.label,
-            DateFormat('MMM d, y · h:mm a').format(movement.createdAt.toLocal()),
-            if (movement.note != null && movement.note!.isNotEmpty) movement.note!,
+            movement.movementType.label(context.l10n),
+            DateFormat(
+              'MMM d, y · h:mm a',
+            ).format(movement.createdAt.toLocal()),
+            if (movement.note != null && movement.note!.isNotEmpty)
+              movement.note!,
           ].join(' · '),
           style: AppTextStyles.caption.copyWith(color: AppColors.muted),
         ),
         trailing: Text(
           '${isPositive ? '+' : ''}${movement.quantity}',
-          style: AppTextStyles.bodyStrong.copyWith(color: isPositive ? AppColors.success : AppColors.danger),
+          style: AppTextStyles.bodyStrong.copyWith(
+            color: isPositive ? AppColors.success : AppColors.danger,
+          ),
         ),
       ),
     );
@@ -264,12 +318,15 @@ class _SuppliersTab extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showSupplierFormSheet(context),
         icon: const Icon(Icons.add),
-        label: const Text('Add supplier'),
+        label: Text(context.l10n.invAddSupplier),
       ),
       body: suppliersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
-          child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: ErrorBanner(message: friendlyError(err, context.l10n)),
+          ),
         ),
         data: (suppliers) {
           if (suppliers.isEmpty) {
@@ -279,13 +336,22 @@ class _SuppliersTab extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_shipping_outlined, size: 40, color: AppColors.muted),
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      size: 40,
+                      color: AppColors.muted,
+                    ),
                     const SizedBox(height: AppSpacing.md),
-                    Text('No suppliers yet', style: AppTextStyles.title),
+                    Text(
+                      context.l10n.invNoSuppliersYetTitle,
+                      style: AppTextStyles.title,
+                    ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Track who you restock products from.',
-                      style: AppTextStyles.body.copyWith(color: AppColors.muted),
+                      context.l10n.invNoSuppliersYetSubtitle,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -294,10 +360,16 @@ class _SuppliersTab extends ConsumerWidget {
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 88),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              88,
+            ),
             itemCount: suppliers.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) => _SupplierTile(supplier: suppliers[index]),
+            itemBuilder: (context, index) =>
+                _SupplierTile(supplier: suppliers[index]),
           );
         },
       ),
@@ -314,20 +386,33 @@ class _SupplierTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
         leading: CircleAvatar(
           backgroundColor: AppColors.primaryLight,
           child: Text(
             supplier.name.isNotEmpty ? supplier.name[0].toUpperCase() : '?',
-            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         title: Text(supplier.name, style: AppTextStyles.bodyStrong),
         subtitle: Text(
-          supplier.phone ?? supplier.email ?? 'No contact info on file',
-          style: AppTextStyles.caption.copyWith(color: supplier.active ? AppColors.muted : AppColors.danger),
+          supplier.phone ?? supplier.email ?? context.l10n.invNoContactInfo,
+          style: AppTextStyles.caption.copyWith(
+            color: supplier.active ? AppColors.muted : AppColors.danger,
+          ),
         ),
-        trailing: supplier.active ? null : Text('Inactive', style: AppTextStyles.caption.copyWith(color: AppColors.danger)),
+        trailing: supplier.active
+            ? null
+            : Text(
+                context.l10n.invInactive,
+                style: AppTextStyles.caption.copyWith(color: AppColors.danger),
+              ),
         onTap: () => showSupplierFormSheet(context, existing: supplier),
       ),
     );

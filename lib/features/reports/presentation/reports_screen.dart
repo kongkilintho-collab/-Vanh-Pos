@@ -16,27 +16,36 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'reports_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final sales = await ref.read(reportSalesProvider.future);
     final rows = <List<String>>[
-      ['Receipt', 'Date', 'Amount', 'Payment status'],
+      [
+        l10n.reportsColReceipt,
+        l10n.reportsColDate,
+        l10n.reportsColAmount,
+        l10n.reportsCsvPaymentStatus,
+      ],
       for (final sale in sales)
         [
           sale['receipt_number'] as String,
-          DateTime.parse(sale['created_at'] as String).toLocal().toIso8601String(),
+          DateTime.parse(
+            sale['created_at'] as String,
+          ).toLocal().toIso8601String(),
           sale['total_amount'].toString(),
           sale['payment_status'] as String,
         ],
     ];
     await Clipboard.setData(ClipboardData(text: toCsv(rows)));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report copied to clipboard as CSV.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.reportsCopiedToClipboard)));
     }
   }
 
@@ -57,29 +66,31 @@ class ReportsScreen extends ConsumerWidget {
                 Expanded(
                   child: DateRangeFilterBar(
                     selection: range,
-                    onChanged: (s) => ref.read(reportDateRangeProvider.notifier).state = s,
+                    onChanged: (s) =>
+                        ref.read(reportDateRangeProvider.notifier).state = s,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 OutlinedButton.icon(
                   onPressed: () => _export(context, ref),
                   icon: const Icon(Icons.copy_outlined, size: 18),
-                  label: const Text('Export CSV'),
+                  label: Text(context.l10n.reportsExportCsv),
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.xl),
             summaryAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => ErrorBanner(message: friendlyError(err)),
+              error: (err, _) =>
+                  ErrorBanner(message: friendlyError(err, context.l10n)),
               data: (summary) => _SummaryRow(summary: summary),
             ),
             const SizedBox(height: AppSpacing.xxl),
-            Text('Revenue by day', style: AppTextStyles.title),
+            Text(context.l10n.reportsRevenueByDay, style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.md),
             const SizedBox(height: 220, child: _RevenueChart()),
             const SizedBox(height: AppSpacing.xxl),
-            Text('Sales in range', style: AppTextStyles.title),
+            Text(context.l10n.reportsSalesInRange, style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.md),
             const SizedBox(height: 400, child: _SalesTable()),
           ],
@@ -100,14 +111,28 @@ class _SummaryRow extends StatelessWidget {
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,
       children: [
-        _StatCard(label: 'Revenue', value: formatMoney(summary.revenue)),
-        _StatCard(label: 'Cost of goods sold', value: formatMoney(summary.cogs)),
-        _StatCard(label: 'Commission', value: formatMoney(summary.commissionTotal)),
-        _StatCard(label: 'Expenses', value: formatMoney(summary.expenseTotal)),
         _StatCard(
-          label: 'Estimated profit',
+          label: context.l10n.reportsRevenue,
+          value: formatMoney(summary.revenue),
+        ),
+        _StatCard(
+          label: context.l10n.reportsCogs,
+          value: formatMoney(summary.cogs),
+        ),
+        _StatCard(
+          label: context.l10n.reportsCommission,
+          value: formatMoney(summary.commissionTotal),
+        ),
+        _StatCard(
+          label: context.l10n.reportsExpenses,
+          value: formatMoney(summary.expenseTotal),
+        ),
+        _StatCard(
+          label: context.l10n.reportsEstimatedProfit,
           value: formatMoney(summary.profit),
-          valueColor: summary.profit < Decimal.zero ? AppColors.danger : AppColors.success,
+          valueColor: summary.profit < Decimal.zero
+              ? AppColors.danger
+              : AppColors.success,
         ),
       ],
     );
@@ -131,9 +156,17 @@ class _StatCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.muted)),
+              Text(
+                label,
+                style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+              ),
               const SizedBox(height: AppSpacing.xs),
-              Text(value, style: AppTextStyles.subtitle.copyWith(color: valueColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(
+                value,
+                style: AppTextStyles.subtitle.copyWith(color: valueColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -151,15 +184,20 @@ class _RevenueChart extends ConsumerWidget {
 
     return dailyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => ErrorBanner(message: friendlyError(err)),
+      error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
       data: (daily) {
         if (daily.isEmpty) {
           return Center(
-            child: Text('No sales in this range yet.', style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+            child: Text(
+              context.l10n.reportsNoSalesInRange,
+              style: AppTextStyles.body.copyWith(color: AppColors.muted),
+            ),
           );
         }
 
-        final maxRevenue = daily.map((d) => d.revenue.toDouble()).reduce((a, b) => a > b ? a : b);
+        final maxRevenue = daily
+            .map((d) => d.revenue.toDouble())
+            .reduce((a, b) => a > b ? a : b);
 
         return BarChart(
           BarChartData(
@@ -169,23 +207,37 @@ class _RevenueChart extends ConsumerWidget {
                 BarChartGroupData(
                   x: i,
                   barRods: [
-                    BarChartRodData(toY: daily[i].revenue.toDouble(), color: AppColors.primary, width: 14),
+                    BarChartRodData(
+                      toY: daily[i].revenue.toDouble(),
+                      color: AppColors.primary,
+                      width: 14,
+                    ),
                   ],
                 ),
             ],
             titlesData: FlTitlesData(
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              rightTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              leftTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
                   getTitlesWidget: (value, meta) {
                     final index = value.toInt();
-                    if (index < 0 || index >= daily.length) return const SizedBox.shrink();
+                    if (index < 0 || index >= daily.length)
+                      return const SizedBox.shrink();
                     return Padding(
                       padding: const EdgeInsets.only(top: AppSpacing.xs),
-                      child: Text(DateFormat('M/d').format(daily[index].date), style: AppTextStyles.caption),
+                      child: Text(
+                        DateFormat('M/d').format(daily[index].date),
+                        style: AppTextStyles.caption,
+                      ),
                     );
                   },
                 ),
@@ -209,31 +261,51 @@ class _SalesTable extends ConsumerWidget {
 
     return salesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => ErrorBanner(message: friendlyError(err)),
+      error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
       data: (sales) {
         if (sales.isEmpty) {
           return Center(
-            child: Text('No sales in this range yet.', style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+            child: Text(
+              context.l10n.reportsNoSalesInRange,
+              style: AppTextStyles.body.copyWith(color: AppColors.muted),
+            ),
           );
         }
 
         return DataTable2(
           columnSpacing: AppSpacing.lg,
           minWidth: 500,
-          columns: const [
-            DataColumn2(label: Text('Receipt')),
-            DataColumn2(label: Text('Date')),
-            DataColumn2(label: Text('Status')),
-            DataColumn2(label: Text('Amount'), numeric: true),
+          columns: [
+            DataColumn2(label: Text(context.l10n.reportsColReceipt)),
+            DataColumn2(label: Text(context.l10n.reportsColDate)),
+            DataColumn2(label: Text(context.l10n.reportsColStatus)),
+            DataColumn2(
+              label: Text(context.l10n.reportsColAmount),
+              numeric: true,
+            ),
           ],
           rows: [
             for (final sale in sales)
-              DataRow2(cells: [
-                DataCell(Text(sale['receipt_number'] as String)),
-                DataCell(Text(DateFormat('MMM d, y · h:mm a').format(DateTime.parse(sale['created_at'] as String).toLocal()))),
-                DataCell(Text(sale['payment_status'] as String)),
-                DataCell(Text(formatMoney(Decimal.parse(sale['total_amount'].toString())))),
-              ]),
+              DataRow2(
+                cells: [
+                  DataCell(Text(sale['receipt_number'] as String)),
+                  DataCell(
+                    Text(
+                      DateFormat('MMM d, y · h:mm a').format(
+                        DateTime.parse(sale['created_at'] as String).toLocal(),
+                      ),
+                    ),
+                  ),
+                  DataCell(Text(sale['payment_status'] as String)),
+                  DataCell(
+                    Text(
+                      formatMoney(
+                        Decimal.parse(sale['total_amount'].toString()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
           ],
         );
       },

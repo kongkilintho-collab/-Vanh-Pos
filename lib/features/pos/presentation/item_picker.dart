@@ -13,6 +13,7 @@ import '../../products/presentation/product_providers.dart';
 import '../../services/presentation/service_providers.dart';
 import '../domain/cart_line.dart';
 import 'cart_controller.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 const _uuid = Uuid();
 
@@ -35,11 +36,16 @@ class _ItemPickerState extends ConsumerState<ItemPicker> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
           child: TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search, size: 20),
-              hintText: 'Search services or products',
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search, size: 20),
+              hintText: context.l10n.posSearchServicesOrProducts,
             ),
             onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
           ),
@@ -47,16 +53,28 @@ class _ItemPickerState extends ConsumerState<ItemPicker> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: SegmentedButton<_ItemTab>(
-            segments: const [
-              ButtonSegment(value: _ItemTab.services, label: Text('Services'), icon: Icon(Icons.spa_outlined)),
-              ButtonSegment(value: _ItemTab.products, label: Text('Products'), icon: Icon(Icons.inventory_2_outlined)),
+            segments: [
+              ButtonSegment(
+                value: _ItemTab.services,
+                label: Text(context.l10n.posServicesTab),
+                icon: const Icon(Icons.spa_outlined),
+              ),
+              ButtonSegment(
+                value: _ItemTab.products,
+                label: Text(context.l10n.posProductsTab),
+                icon: const Icon(Icons.inventory_2_outlined),
+              ),
             ],
             selected: {_tab},
             onSelectionChanged: (s) => setState(() => _tab = s.first),
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Expanded(child: _tab == _ItemTab.services ? _ServicesGrid(query: _query) : _ProductsGrid(query: _query)),
+        Expanded(
+          child: _tab == _ItemTab.services
+              ? _ServicesGrid(query: _query)
+              : _ProductsGrid(query: _query),
+        ),
       ],
     );
   }
@@ -72,14 +90,19 @@ class _ServicesGrid extends ConsumerWidget {
     final servicesAsync = ref.watch(servicesListProvider);
     return servicesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: ErrorBanner(message: friendlyError(err))),
+      error: (err, _) =>
+          Center(child: ErrorBanner(message: friendlyError(err, context.l10n))),
       data: (services) {
         final filtered = services
             .where((s) => s.active)
             .where((s) => query.isEmpty || s.name.toLowerCase().contains(query))
             .toList();
         if (filtered.isEmpty) {
-          return _EmptyPickerState(message: services.isEmpty ? 'No services yet' : 'No matches');
+          return _EmptyPickerState(
+            message: services.isEmpty
+                ? context.l10n.posNoServicesYet
+                : context.l10n.posNoMatches,
+          );
         }
         return _ItemGrid(
           count: filtered.length,
@@ -89,14 +112,18 @@ class _ServicesGrid extends ConsumerWidget {
               title: s.name,
               subtitle: formatMoney(s.price),
               icon: Icons.spa_outlined,
-              onTap: () => ref.read(cartControllerProvider.notifier).addLine(CartLine(
-                    key: _uuid.v4(),
-                    kind: SaleItemKind.service,
-                    refId: s.id,
-                    name: s.name,
-                    unitPrice: s.price,
-                    quantity: 1,
-                  )),
+              onTap: () => ref
+                  .read(cartControllerProvider.notifier)
+                  .addLine(
+                    CartLine(
+                      key: _uuid.v4(),
+                      kind: SaleItemKind.service,
+                      refId: s.id,
+                      name: s.name,
+                      unitPrice: s.price,
+                      quantity: 1,
+                    ),
+                  ),
             );
           },
         );
@@ -115,14 +142,19 @@ class _ProductsGrid extends ConsumerWidget {
     final productsAsync = ref.watch(productsListProvider);
     return productsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: ErrorBanner(message: friendlyError(err))),
+      error: (err, _) =>
+          Center(child: ErrorBanner(message: friendlyError(err, context.l10n))),
       data: (products) {
         final filtered = products
             .where((p) => p.active)
             .where((p) => query.isEmpty || p.name.toLowerCase().contains(query))
             .toList();
         if (filtered.isEmpty) {
-          return _EmptyPickerState(message: products.isEmpty ? 'No products yet' : 'No matches');
+          return _EmptyPickerState(
+            message: products.isEmpty
+                ? context.l10n.posNoProductsYet
+                : context.l10n.posNoMatches,
+          );
         }
         return _ItemGrid(
           count: filtered.length,
@@ -131,21 +163,30 @@ class _ProductsGrid extends ConsumerWidget {
             final outOfStock = p.stockQuantity <= 0;
             return _ItemCard(
               title: p.name,
-              subtitle: outOfStock ? 'Out of stock' : '${formatMoney(p.sellingPrice)} · ${p.stockQuantity} left',
+              subtitle: outOfStock
+                  ? context.l10n.posOutOfStock
+                  : context.l10n.posItemsLeft(
+                      formatMoney(p.sellingPrice),
+                      p.stockQuantity,
+                    ),
               subtitleColor: outOfStock ? AppColors.danger : null,
               icon: Icons.inventory_2_outlined,
               disabled: outOfStock,
               onTap: outOfStock
                   ? null
-                  : () => ref.read(cartControllerProvider.notifier).addLine(CartLine(
-                        key: _uuid.v4(),
-                        kind: SaleItemKind.product,
-                        refId: p.id,
-                        name: p.name,
-                        unitPrice: p.sellingPrice,
-                        quantity: 1,
-                        availableStock: p.stockQuantity,
-                      )),
+                  : () => ref
+                        .read(cartControllerProvider.notifier)
+                        .addLine(
+                          CartLine(
+                            key: _uuid.v4(),
+                            kind: SaleItemKind.product,
+                            refId: p.id,
+                            name: p.name,
+                            unitPrice: p.sellingPrice,
+                            quantity: 1,
+                            availableStock: p.stockQuantity,
+                          ),
+                        ),
             );
           },
         );
@@ -163,7 +204,12 @@ class _ItemGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 220,
         mainAxisSpacing: AppSpacing.sm,
@@ -211,11 +257,18 @@ class _ItemCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: AppTextStyles.bodyStrong, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(
+                      title,
+                      style: AppTextStyles.bodyStrong,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: AppTextStyles.caption.copyWith(color: subtitleColor ?? AppColors.muted),
+                      style: AppTextStyles.caption.copyWith(
+                        color: subtitleColor ?? AppColors.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -236,7 +289,10 @@ class _EmptyPickerState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text(message, style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+      child: Text(
+        message,
+        style: AppTextStyles.body.copyWith(color: AppColors.muted),
+      ),
     );
   }
 }

@@ -14,6 +14,7 @@ import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../../staff/presentation/staff_providers.dart';
 import 'commission_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class CommissionsScreen extends ConsumerWidget {
   const CommissionsScreen({super.key});
@@ -23,7 +24,8 @@ class CommissionsScreen extends ConsumerWidget {
     final commissionsAsync = ref.watch(commissionsListProvider);
     final staffAsync = ref.watch(staffMembersProvider);
     final filter = ref.watch(commissionFilterProvider);
-    final myRole = ref.watch(currentMembershipProvider)?.role ?? BusinessRole.staff;
+    final myRole =
+        ref.watch(currentMembershipProvider)?.role ?? BusinessRole.staff;
     final canManage = myRole.isAtLeast(BusinessRole.admin);
 
     return Scaffold(
@@ -39,14 +41,23 @@ class CommissionsScreen extends ConsumerWidget {
                   child: DropdownButtonFormField<String?>(
                     initialValue: filter.staffId,
                     isDense: true,
-                    decoration: const InputDecoration(labelText: 'Staff'),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.commissionsStaffLabel,
+                    ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('All staff')),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text(context.l10n.commissionsAllStaff),
+                      ),
                       for (final s in staffAsync.valueOrNull ?? const [])
-                        DropdownMenuItem(value: s.userId, child: Text(s.fullName)),
+                        DropdownMenuItem(
+                          value: s.userId,
+                          child: Text(s.fullName),
+                        ),
                     ],
-                    onChanged: (v) => ref.read(commissionFilterProvider.notifier).state =
-                        filter.copyWith(staffId: v, clearStaff: v == null),
+                    onChanged: (v) =>
+                        ref.read(commissionFilterProvider.notifier).state =
+                            filter.copyWith(staffId: v, clearStaff: v == null),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -54,13 +65,23 @@ class CommissionsScreen extends ConsumerWidget {
                   child: DropdownButtonFormField<CommissionStatus?>(
                     initialValue: filter.status,
                     isDense: true,
-                    decoration: const InputDecoration(labelText: 'Status'),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.commissionsStatusLabel,
+                    ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('All statuses')),
-                      for (final s in CommissionStatus.values) DropdownMenuItem(value: s, child: Text(s.label)),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text(context.l10n.commissionsAllStatuses),
+                      ),
+                      for (final s in CommissionStatus.values)
+                        DropdownMenuItem(
+                          value: s,
+                          child: Text(s.label(context.l10n)),
+                        ),
                     ],
-                    onChanged: (v) => ref.read(commissionFilterProvider.notifier).state =
-                        filter.copyWith(status: v, clearStatus: v == null),
+                    onChanged: (v) =>
+                        ref.read(commissionFilterProvider.notifier).state =
+                            filter.copyWith(status: v, clearStatus: v == null),
                   ),
                 ),
               ],
@@ -70,20 +91,36 @@ class CommissionsScreen extends ConsumerWidget {
             child: commissionsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: ErrorBanner(message: friendlyError(err, context.l10n)),
+                ),
               ),
               data: (commissions) {
                 if (commissions.isEmpty) {
                   return Center(
-                    child: Text('No commissions found.', style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+                    child: Text(
+                      context.l10n.commissionsNoneFound,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    ),
                   );
                 }
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xl),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.xl,
+                  ),
                   itemCount: commissions.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (context, index) =>
-                      _CommissionTile(commission: commissions[index], canManage: canManage),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, index) => _CommissionTile(
+                    commission: commissions[index],
+                    canManage: canManage,
+                  ),
                 );
               },
             ),
@@ -101,15 +138,21 @@ class _CommissionTile extends ConsumerWidget {
   const _CommissionTile({required this.commission, required this.canManage});
 
   Color _statusColor() => switch (commission.status) {
-        CommissionStatus.pending => AppColors.warning,
-        CommissionStatus.approved => AppColors.info,
-        CommissionStatus.paid => AppColors.success,
-        CommissionStatus.reversed => AppColors.danger,
-      };
+    CommissionStatus.pending => AppColors.warning,
+    CommissionStatus.approved => AppColors.info,
+    CommissionStatus.paid => AppColors.success,
+    CommissionStatus.reversed => AppColors.danger,
+  };
 
-  Future<void> _updateStatus(BuildContext context, WidgetRef ref, CommissionStatus status) async {
+  Future<void> _updateStatus(
+    BuildContext context,
+    WidgetRef ref,
+    CommissionStatus status,
+  ) async {
     try {
-      await ref.read(commissionRepositoryProvider).updateStatus(
+      await ref
+          .read(commissionRepositoryProvider)
+          .updateStatus(
             id: commission.id,
             businessId: commission.businessId,
             status: status,
@@ -117,7 +160,9 @@ class _CommissionTile extends ConsumerWidget {
       ref.invalidate(commissionsListProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e, context.l10n))));
       }
     }
   }
@@ -127,21 +172,33 @@ class _CommissionTile extends ConsumerWidget {
     final next = commission.status.nextInFlow;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
         child: Row(
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(commission.staffName ?? 'Unknown staff', style: AppTextStyles.bodyStrong),
+                  Text(
+                    commission.staffName ??
+                        context.l10n.commissionsUnknownStaff,
+                    style: AppTextStyles.bodyStrong,
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     [
-                      if (commission.saleReceiptNumber != null) commission.saleReceiptNumber!,
-                      DateFormat('MMM d, y').format(commission.createdAt.toLocal()),
+                      if (commission.saleReceiptNumber != null)
+                        commission.saleReceiptNumber!,
+                      DateFormat(
+                        'MMM d, y',
+                      ).format(commission.createdAt.toLocal()),
                     ].join(' · '),
-                    style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.muted,
+                    ),
                   ),
                 ],
               ),
@@ -149,22 +206,35 @@ class _CommissionTile extends ConsumerWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(formatMoney(commission.commissionAmount), style: AppTextStyles.bodyStrong),
+                Text(
+                  formatMoney(commission.commissionAmount),
+                  style: AppTextStyles.bodyStrong,
+                ),
                 Container(
                   margin: const EdgeInsets.only(top: 2),
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: _statusColor().withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                   ),
-                  child: Text(commission.status.label, style: AppTextStyles.caption.copyWith(color: _statusColor())),
+                  child: Text(
+                    commission.status.label(context.l10n),
+                    style: AppTextStyles.caption.copyWith(
+                      color: _statusColor(),
+                    ),
+                  ),
                 ),
               ],
             ),
             if (canManage && next != null) ...[
               const SizedBox(width: AppSpacing.sm),
               IconButton(
-                tooltip: 'Mark ${next.label}',
+                tooltip: context.l10n.commissionsMarkAs(
+                  next.label(context.l10n),
+                ),
                 icon: const Icon(Icons.arrow_circle_right_outlined, size: 20),
                 onPressed: () => _updateStatus(context, ref, next),
               ),

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../l10n/l10n_extensions.dart';
 import '../../../shared/models/business.dart';
 import '../../../shared/models/customer.dart';
 import '../../../shared/models/payment_method.dart';
@@ -72,19 +73,50 @@ class ReceiptSheet extends StatelessWidget {
                 padding: const EdgeInsets.all(AppSpacing.xl),
                 children: [
                   Center(
-                    child: Icon(Icons.check_circle, color: AppColors.success, size: 40),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 40,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Center(child: Text('Sale complete', style: AppTextStyles.headline)),
+                  Center(
+                    child: Text(
+                      context.l10n.posReceiptSaleComplete,
+                      style: AppTextStyles.headline,
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.xl),
-                  Text(business.name, style: AppTextStyles.subtitle, textAlign: TextAlign.center),
+                  Text(
+                    business.name,
+                    style: AppTextStyles.subtitle,
+                    textAlign: TextAlign.center,
+                  ),
                   if (business.phone != null)
-                    Text(business.phone!, style: AppTextStyles.caption, textAlign: TextAlign.center),
+                    Text(
+                      business.phone!,
+                      style: AppTextStyles.caption,
+                      textAlign: TextAlign.center,
+                    ),
                   const SizedBox(height: AppSpacing.lg),
-                  _ReceiptRow(label: 'Receipt', value: sale.receiptNumber),
-                  _ReceiptRow(label: 'Date', value: DateFormat('yMMMd · h:mm a').format(sale.createdAt.toLocal())),
-                  _ReceiptRow(label: 'Cashier', value: cashierName),
-                  _ReceiptRow(label: 'Customer', value: customer?.name ?? 'Walk-in'),
+                  _ReceiptRow(
+                    label: context.l10n.posReceiptReceipt,
+                    value: sale.receiptNumber,
+                  ),
+                  _ReceiptRow(
+                    label: context.l10n.posReceiptDate,
+                    value: DateFormat(
+                      'yMMMd · h:mm a',
+                    ).format(sale.createdAt.toLocal()),
+                  ),
+                  _ReceiptRow(
+                    label: context.l10n.posReceiptCashier,
+                    value: cashierName,
+                  ),
+                  _ReceiptRow(
+                    label: context.l10n.posReceiptCustomer,
+                    value: customer?.name ?? context.l10n.posReceiptWalkIn,
+                  ),
                   const Divider(height: AppSpacing.xxl),
                   for (final line in lines)
                     Padding(
@@ -97,30 +129,52 @@ class ReceiptSheet extends StatelessWidget {
                               style: AppTextStyles.body,
                             ),
                           ),
-                          Text(formatMoney(line.subtotal), style: AppTextStyles.body),
+                          Text(
+                            formatMoney(line.subtotal),
+                            style: AppTextStyles.body,
+                          ),
                         ],
                       ),
                     ),
                   const Divider(height: AppSpacing.xxl),
-                  _ReceiptRow(label: 'Subtotal', value: formatMoney(sale.subtotal)),
+                  _ReceiptRow(
+                    label: context.l10n.posSubtotal,
+                    value: formatMoney(sale.subtotal),
+                  ),
                   if (sale.discountAmount.toDouble() > 0)
-                    _ReceiptRow(label: 'Discount', value: '-${formatMoney(sale.discountAmount)}'),
+                    _ReceiptRow(
+                      label: context.l10n.posDiscount,
+                      value: '-${formatMoney(sale.discountAmount)}',
+                    ),
                   if (sale.taxAmount.toDouble() > 0)
-                    _ReceiptRow(label: 'Tax', value: formatMoney(sale.taxAmount)),
+                    _ReceiptRow(
+                      label: context.l10n.posTax,
+                      value: formatMoney(sale.taxAmount),
+                    ),
                   const SizedBox(height: AppSpacing.xs),
                   _ReceiptRow(
-                    label: 'Total',
+                    label: context.l10n.posTotal,
                     value: formatMoney(sale.totalAmount),
                     strong: true,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _ReceiptRow(label: 'Paid (${paymentMethod.label})', value: formatMoney(sale.paidAmount)),
-                  _ReceiptRow(label: 'Change', value: formatMoney(sale.changeAmount)),
+                  _ReceiptRow(
+                    label: context.l10n.posReceiptPaidVia(
+                      paymentMethod.label(context.l10n),
+                    ),
+                    value: formatMoney(sale.paidAmount),
+                  ),
+                  _ReceiptRow(
+                    label: context.l10n.posChange,
+                    value: formatMoney(sale.changeAmount),
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   Center(
                     child: Text(
-                      'Thank you!',
-                      style: AppTextStyles.subtitle.copyWith(color: AppColors.muted),
+                      context.l10n.posReceiptThankYou,
+                      style: AppTextStyles.subtitle.copyWith(
+                        color: AppColors.muted,
+                      ),
                     ),
                   ),
                 ],
@@ -130,7 +184,10 @@ class ReceiptSheet extends StatelessWidget {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                child: PrimaryButton(label: 'New sale', onPressed: () => Navigator.of(context).pop()),
+                child: PrimaryButton(
+                  label: context.l10n.posReceiptNewSale,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ),
           ],
@@ -145,7 +202,11 @@ class _ReceiptRow extends StatelessWidget {
   final String value;
   final bool strong;
 
-  const _ReceiptRow({required this.label, required this.value, this.strong = false});
+  const _ReceiptRow({
+    required this.label,
+    required this.value,
+    this.strong = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +216,10 @@ class _ReceiptRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: style.copyWith(color: strong ? null : AppColors.muted)),
+          Text(
+            label,
+            style: style.copyWith(color: strong ? null : AppColors.muted),
+          ),
           Text(value, style: style),
         ],
       ),

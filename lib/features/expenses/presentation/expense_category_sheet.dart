@@ -9,6 +9,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'expense_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<void> showExpenseCategorySheet(BuildContext context) {
   return showModalBottomSheet(
@@ -23,7 +24,8 @@ class _ExpenseCategorySheet extends ConsumerStatefulWidget {
   const _ExpenseCategorySheet();
 
   @override
-  ConsumerState<_ExpenseCategorySheet> createState() => _ExpenseCategorySheetState();
+  ConsumerState<_ExpenseCategorySheet> createState() =>
+      _ExpenseCategorySheetState();
 }
 
 class _ExpenseCategorySheetState extends ConsumerState<_ExpenseCategorySheet> {
@@ -48,11 +50,13 @@ class _ExpenseCategorySheetState extends ConsumerState<_ExpenseCategorySheet> {
       _error = null;
     });
     try {
-      await ref.read(expenseRepositoryProvider).createCategory(businessId, name);
+      await ref
+          .read(expenseRepositoryProvider)
+          .createCategory(businessId, name);
       _nameController.clear();
       ref.invalidate(expenseCategoriesProvider);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _adding = false);
     }
@@ -63,7 +67,7 @@ class _ExpenseCategorySheetState extends ConsumerState<_ExpenseCategorySheet> {
       await ref.read(expenseRepositoryProvider).setCategoryActive(id, active);
       ref.invalidate(expenseCategoriesProvider);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
     }
   }
 
@@ -73,37 +77,58 @@ class _ExpenseCategorySheetState extends ConsumerState<_ExpenseCategorySheet> {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Expense categories', style: AppTextStyles.headline),
+              Text(
+                context.l10n.expenseCategoriesTitle,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.lg),
-              if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: AppSpacing.lg)],
+              if (_error != null) ...[
+                ErrorBanner(message: _error!),
+                const SizedBox(height: AppSpacing.lg),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'New category name'),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.expenseNewCategoryNameLabel,
+                      ),
                       onSubmitted: (_) => _add(),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  PrimaryButton(label: 'Add', onPressed: _add, loading: _adding, expand: false),
+                  PrimaryButton(
+                    label: context.l10n.commonAdd,
+                    onPressed: _add,
+                    loading: _adding,
+                    expand: false,
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
               categoriesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => ErrorBanner(message: friendlyError(err)),
+                error: (err, _) =>
+                    ErrorBanner(message: friendlyError(err, context.l10n)),
                 data: (categories) {
                   if (categories.isEmpty) {
-                    return Text('No categories yet.', style: AppTextStyles.body.copyWith(color: AppColors.muted));
+                    return Text(
+                      context.l10n.expenseNoCategoriesYet,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    );
                   }
                   return Column(
                     children: [

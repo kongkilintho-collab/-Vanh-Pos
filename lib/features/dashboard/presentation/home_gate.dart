@@ -7,6 +7,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/onboarding_create_business_screen.dart';
 import 'dashboard_shell.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 /// Decides, once signed in, whether the user lands in onboarding (no
 /// business yet) or the dashboard (has at least one active membership).
@@ -18,7 +19,8 @@ class HomeGate extends ConsumerWidget {
     final membershipsAsync = ref.watch(myMembershipsProvider);
 
     return membershipsAsync.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, _) => Scaffold(
         body: Center(
           child: Padding(
@@ -26,10 +28,10 @@ class HomeGate extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ErrorBanner(message: friendlyError(err)),
+                ErrorBanner(message: friendlyError(err, context.l10n)),
                 const SizedBox(height: 16),
                 PrimaryButton(
-                  label: 'Retry',
+                  label: context.l10n.commonRetry,
                   expand: false,
                   onPressed: () => ref.invalidate(myMembershipsProvider),
                 ),

@@ -13,6 +13,7 @@ import '../../../theme/app_text_styles.dart';
 import 'expense_category_sheet.dart';
 import 'expense_form_sheet.dart';
 import 'expense_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 class ExpensesScreen extends ConsumerWidget {
   const ExpensesScreen({super.key});
@@ -28,7 +29,7 @@ class ExpensesScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showExpenseFormSheet(context),
         icon: const Icon(Icons.add),
-        label: const Text('Add expense'),
+        label: Text(context.l10n.expensesAddTitle),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -44,18 +45,28 @@ class ExpensesScreen extends ConsumerWidget {
                     data: (categories) => DropdownButtonFormField<String?>(
                       initialValue: filter,
                       isDense: true,
-                      decoration: const InputDecoration(labelText: 'Category'),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.categoryLabel,
+                      ),
                       items: [
-                        const DropdownMenuItem(value: null, child: Text('All categories')),
-                        for (final c in categories) DropdownMenuItem(value: c.id, child: Text(c.name)),
+                        DropdownMenuItem(
+                          value: null,
+                          child: Text(context.l10n.expensesAllCategories),
+                        ),
+                        for (final c in categories)
+                          DropdownMenuItem(value: c.id, child: Text(c.name)),
                       ],
-                      onChanged: (v) => ref.read(expenseCategoryFilterProvider.notifier).state = v,
+                      onChanged: (v) =>
+                          ref
+                                  .read(expenseCategoryFilterProvider.notifier)
+                                  .state =
+                              v,
                     ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 IconButton(
-                  tooltip: 'Manage categories',
+                  tooltip: context.l10n.expensesManageCategoriesTooltip,
                   icon: const Icon(Icons.category_outlined),
                   onPressed: () => showExpenseCategorySheet(context),
                 ),
@@ -66,7 +77,10 @@ class ExpensesScreen extends ConsumerWidget {
             child: expensesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: ErrorBanner(message: friendlyError(err, context.l10n)),
+                ),
               ),
               data: (expenses) {
                 if (expenses.isEmpty) {
@@ -76,13 +90,22 @@ class ExpensesScreen extends ConsumerWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.muted),
+                          const Icon(
+                            Icons.receipt_long_outlined,
+                            size: 40,
+                            color: AppColors.muted,
+                          ),
                           const SizedBox(height: AppSpacing.md),
-                          Text('No expenses recorded', style: AppTextStyles.title),
+                          Text(
+                            context.l10n.expensesNoExpensesTitle,
+                            style: AppTextStyles.title,
+                          ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            'Track rent, utilities, and other business costs here.',
-                            style: AppTextStyles.body.copyWith(color: AppColors.muted),
+                            context.l10n.expensesNoExpensesSubtitle,
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.muted,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -91,27 +114,47 @@ class ExpensesScreen extends ConsumerWidget {
                   );
                 }
 
-                final total = expenses.fold<Decimal>(Decimal.zero, (sum, e) => sum + e.amount);
+                final total = expenses.fold<Decimal>(
+                  Decimal.zero,
+                  (sum, e) => sum + e.amount,
+                );
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                      ),
                       child: Row(
                         children: [
-                          Text('Total: ', style: AppTextStyles.body.copyWith(color: AppColors.muted)),
-                          Text(formatMoney(total), style: AppTextStyles.bodyStrong),
+                          Text(
+                            context.l10n.expensesTotalLabel,
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.muted,
+                            ),
+                          ),
+                          Text(
+                            formatMoney(total),
+                            style: AppTextStyles.bodyStrong,
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 88),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          0,
+                          AppSpacing.lg,
+                          88,
+                        ),
                         itemCount: expenses.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-                        itemBuilder: (context, index) => _ExpenseTile(expense: expenses[index]),
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppSpacing.sm),
+                        itemBuilder: (context, index) =>
+                            _ExpenseTile(expense: expenses[index]),
                       ),
                     ),
                   ],
@@ -134,11 +177,17 @@ class _ExpenseTile extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete expense?'),
-        content: const Text('This cannot be undone.'),
+        title: Text(context.l10n.expensesDeleteTitle),
+        content: Text(context.l10n.expensesDeleteBody),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.commonDelete),
+          ),
         ],
       ),
     );
@@ -148,7 +197,9 @@ class _ExpenseTile extends ConsumerWidget {
       ref.invalidate(expensesListProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e, context.l10n))));
       }
     }
   }
@@ -157,13 +208,20 @@ class _ExpenseTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
-        title: Text(expense.categoryName ?? 'Uncategorized', style: AppTextStyles.bodyStrong),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
+        title: Text(
+          expense.categoryName ?? context.l10n.expensesUncategorized,
+          style: AppTextStyles.bodyStrong,
+        ),
         subtitle: Text(
           [
             DateFormat('MMM d, y').format(expense.expenseDate),
-            expense.paymentMethod.label,
-            if (expense.description != null && expense.description!.isNotEmpty) expense.description!,
+            expense.paymentMethod.label(context.l10n),
+            if (expense.description != null && expense.description!.isNotEmpty)
+              expense.description!,
           ].join(' · '),
           style: AppTextStyles.caption.copyWith(color: AppColors.muted),
         ),
@@ -174,12 +232,19 @@ class _ExpenseTile extends ConsumerWidget {
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, size: 18),
               onSelected: (value) {
-                if (value == 'edit') showExpenseFormSheet(context, existing: expense);
+                if (value == 'edit')
+                  showExpenseFormSheet(context, existing: expense);
                 if (value == 'delete') _delete(context, ref);
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Edit')),
-                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              itemBuilder: (menuContext) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Text(menuContext.l10n.commonEdit),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text(menuContext.l10n.commonDelete),
+                ),
               ],
             ),
           ],

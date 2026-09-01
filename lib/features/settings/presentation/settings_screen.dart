@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/friendly_error.dart';
 import '../../../core/widgets/error_banner.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../l10n/l10n_extensions.dart';
+import '../../../l10n/locale_provider.dart';
 import '../../../shared/models/business.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
@@ -72,23 +74,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _error = null;
     });
     try {
-      await ref.read(businessRepositoryProvider).updateSettings(
+      await ref
+          .read(businessRepositoryProvider)
+          .updateSettings(
             businessId: businessId,
             name: _nameController.text.trim(),
-            phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-            email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-            address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+            phone: _phoneController.text.trim().isEmpty
+                ? null
+                : _phoneController.text.trim(),
+            email: _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim(),
+            address: _addressController.text.trim().isEmpty
+                ? null
+                : _addressController.text.trim(),
             currency: _currencyController.text.trim().toUpperCase(),
             taxEnabled: _taxEnabled,
             taxRate: double.parse(_taxRateController.text.trim()),
-            logoUrl: _logoUrlController.text.trim().isEmpty ? null : _logoUrlController.text.trim(),
+            logoUrl: _logoUrlController.text.trim().isEmpty
+                ? null
+                : _logoUrlController.text.trim(),
           );
       ref.invalidate(myMembershipsProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings saved.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.settingsSaved)));
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -113,11 +127,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Business settings', style: AppTextStyles.displayMedium),
+              Text(
+                context.l10n.settingsTitle,
+                style: AppTextStyles.displayMedium,
+              ),
               const SizedBox(height: AppSpacing.sm),
               if (!canEdit)
                 Text(
-                  'You have read-only access. Ask an admin or owner to make changes.',
+                  context.l10n.settingsReadOnlyNotice,
                   style: AppTextStyles.body.copyWith(color: AppColors.muted),
                 ),
               const SizedBox(height: AppSpacing.lg),
@@ -128,32 +145,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               TextFormField(
                 controller: _nameController,
                 enabled: canEdit,
-                decoration: const InputDecoration(labelText: 'Business name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                decoration: InputDecoration(
+                  labelText: context.l10n.settingsBusinessNameLabel,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.commonRequired
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _phoneController,
                 enabled: canEdit,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.authPhoneOptionalLabel,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _emailController,
                 enabled: canEdit,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersEmailOptionalLabel,
+                ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;
-                  return v.contains('@') ? null : 'Enter a valid email';
+                  return v.contains('@') ? null : context.l10n.authEmailInvalid;
                 },
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _addressController,
                 enabled: canEdit,
-                decoration: const InputDecoration(labelText: 'Address (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersAddressOptionalLabel,
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -161,25 +188,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 controller: _currencyController,
                 enabled: canEdit,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Currency code (e.g. LAK)'),
-                validator: (v) => (v == null || v.trim().length != 3) ? 'Enter a 3-letter currency code' : null,
+                decoration: InputDecoration(
+                  labelText: context.l10n.settingsCurrencyCodeLabel,
+                ),
+                validator: (v) => (v == null || v.trim().length != 3)
+                    ? context.l10n.settingsCurrencyCodeInvalid
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Tax enabled'),
+                title: Text(context.l10n.settingsTaxEnabled),
                 value: _taxEnabled,
-                onChanged: canEdit ? (v) => setState(() => _taxEnabled = v) : null,
+                onChanged: canEdit
+                    ? (v) => setState(() => _taxEnabled = v)
+                    : null,
               ),
               TextFormField(
                 controller: _taxRateController,
                 enabled: canEdit,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Tax rate (%)'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: context.l10n.settingsTaxRateLabel,
+                ),
                 validator: (v) {
                   final parsed = double.tryParse((v ?? '').trim());
-                  if (parsed == null) return 'Enter a number';
-                  if (parsed < 0 || parsed > 100) return 'Must be between 0 and 100';
+                  if (parsed == null)
+                    return context.l10n.settingsTaxRateInvalidNumber;
+                  if (parsed < 0 || parsed > 100)
+                    return context.l10n.settingsTaxRateRange;
                   return null;
                 },
               ),
@@ -187,19 +226,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               TextFormField(
                 controller: _logoUrlController,
                 enabled: canEdit,
-                decoration: const InputDecoration(labelText: 'Logo URL (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.settingsLogoUrlOptionalLabel,
+                ),
               ),
               const SizedBox(height: AppSpacing.xl),
               if (canEdit)
                 PrimaryButton(
-                  label: 'Save changes',
+                  label: context.l10n.commonSaveChanges,
                   onPressed: () => _submit(membership.business.id),
                   loading: _loading,
                   expand: false,
                 ),
+              const SizedBox(height: AppSpacing.xxl),
+              const Divider(),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                context.l10n.settingsLanguageTitle,
+                style: AppTextStyles.title,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                context.l10n.settingsLanguageSubtitle,
+                style: AppTextStyles.body.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const _LanguageSelector(),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LanguageSelector extends ConsumerWidget {
+  const _LanguageSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeControllerProvider);
+    return SizedBox(
+      width: 260,
+      child: DropdownButtonFormField<Locale>(
+        initialValue: locale,
+        decoration: const InputDecoration(isDense: true),
+        items: [
+          DropdownMenuItem(
+            value: const Locale('en'),
+            child: Text(context.l10n.languageEnglish),
+          ),
+          DropdownMenuItem(
+            value: const Locale('lo'),
+            child: Text(context.l10n.languageLao),
+          ),
+        ],
+        onChanged: (value) {
+          if (value != null)
+            ref.read(localeControllerProvider.notifier).setLocale(value);
+        },
       ),
     );
   }

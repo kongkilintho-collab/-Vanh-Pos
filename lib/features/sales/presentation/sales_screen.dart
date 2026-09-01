@@ -11,18 +11,19 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import 'sale_detail_screen.dart';
 import 'sales_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Color _statusColor(String status) => switch (status) {
-      'VOIDED' => AppColors.danger,
-      'REFUNDED' => AppColors.warning,
-      _ => AppColors.success,
-    };
+  'VOIDED' => AppColors.danger,
+  'REFUNDED' => AppColors.warning,
+  _ => AppColors.success,
+};
 
-String _statusLabel(String status) => switch (status) {
-      'VOIDED' => 'Voided',
-      'REFUNDED' => 'Refunded',
-      _ => 'Completed',
-    };
+String _statusLabel(String status, BuildContext context) => switch (status) {
+  'VOIDED' => context.l10n.salesStatusVoided,
+  'REFUNDED' => context.l10n.salesStatusRefunded,
+  _ => context.l10n.salesStatusCompleted,
+};
 
 class SalesScreen extends ConsumerWidget {
   const SalesScreen({super.key});
@@ -37,32 +38,53 @@ class SalesScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.sm,
+            ),
             child: TextField(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search, size: 20),
-                hintText: 'Search by receipt number',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search, size: 20),
+                hintText: context.l10n.salesSearchByReceiptHint,
               ),
-              onChanged: (v) => ref.read(salesSearchQueryProvider.notifier).state = v,
+              onChanged: (v) =>
+                  ref.read(salesSearchQueryProvider.notifier).state = v,
             ),
           ),
           Expanded(
             child: salesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: ErrorBanner(message: friendlyError(err))),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: ErrorBanner(message: friendlyError(err, context.l10n)),
+                ),
               ),
               data: (sales) {
                 if (sales.isEmpty) {
                   return Center(
-                    child: Text('No sales found.', style: AppTextStyles.body.copyWith(color: AppColors.muted)),
+                    child: Text(
+                      context.l10n.salesNoSalesFound,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    ),
                   );
                 }
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xl),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.xl,
+                  ),
                   itemCount: sales.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (context, index) => _SaleTile(sale: sales[index]),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, index) =>
+                      _SaleTile(sale: sales[index]),
                 );
               },
             ),
@@ -82,7 +104,10 @@ class _SaleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
         title: Text(sale.receiptNumber, style: AppTextStyles.bodyStrong),
         subtitle: Text(
           DateFormat('MMM d, y · h:mm a').format(sale.createdAt.toLocal()),
@@ -92,15 +117,26 @@ class _SaleTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(formatMoney(sale.totalAmount), style: AppTextStyles.bodyStrong),
+            Text(
+              formatMoney(sale.totalAmount),
+              style: AppTextStyles.bodyStrong,
+            ),
             Container(
               margin: const EdgeInsets.only(top: 2),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 1),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 1,
+              ),
               decoration: BoxDecoration(
                 color: _statusColor(sale.status).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
-              child: Text(_statusLabel(sale.status), style: AppTextStyles.caption.copyWith(color: _statusColor(sale.status))),
+              child: Text(
+                _statusLabel(sale.status, context),
+                style: AppTextStyles.caption.copyWith(
+                  color: _statusColor(sale.status),
+                ),
+              ),
             ),
           ],
         ),

@@ -9,6 +9,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import 'inventory_providers.dart';
+import '../../../l10n/l10n_extensions.dart';
 
 Future<void> showSupplierFormSheet(BuildContext context, {Supplier? existing}) {
   return showModalBottomSheet(
@@ -30,10 +31,18 @@ class _SupplierFormSheet extends ConsumerStatefulWidget {
 
 class _SupplierFormSheetState extends ConsumerState<_SupplierFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.existing?.name ?? '');
-  late final _phoneController = TextEditingController(text: widget.existing?.phone ?? '');
-  late final _emailController = TextEditingController(text: widget.existing?.email ?? '');
-  late final _addressController = TextEditingController(text: widget.existing?.address ?? '');
+  late final _nameController = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
+  late final _phoneController = TextEditingController(
+    text: widget.existing?.phone ?? '',
+  );
+  late final _emailController = TextEditingController(
+    text: widget.existing?.email ?? '',
+  );
+  late final _addressController = TextEditingController(
+    text: widget.existing?.address ?? '',
+  );
   late bool _active = widget.existing?.active ?? true;
 
   bool _loading = false;
@@ -79,7 +88,7 @@ class _SupplierFormSheetState extends ConsumerState<_SupplierFormSheet> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = friendlyError(e));
+      setState(() => _error = friendlyError(e, context.l10n));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -98,7 +107,12 @@ class _SupplierFormSheetState extends ConsumerState<_SupplierFormSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(isEditing ? 'Edit supplier' : 'Add supplier', style: AppTextStyles.headline),
+              Text(
+                isEditing
+                    ? context.l10n.invEditSupplier
+                    : context.l10n.invAddSupplier,
+                style: AppTextStyles.headline,
+              ),
               const SizedBox(height: AppSpacing.lg),
               if (_error != null) ...[
                 ErrorBanner(message: _error!),
@@ -106,37 +120,49 @@ class _SupplierFormSheetState extends ConsumerState<_SupplierFormSheet> {
               ],
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Supplier name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                decoration: InputDecoration(
+                  labelText: context.l10n.supplierNameLabel,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.commonRequired
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.authPhoneOptionalLabel,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersEmailOptionalLabel,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _addressController,
-                decoration: const InputDecoration(labelText: 'Address (optional)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.customersAddressOptionalLabel,
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.sm),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Active'),
+                title: Text(context.l10n.commonActive),
                 value: _active,
                 onChanged: (v) => setState(() => _active = v),
               ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                label: isEditing ? 'Save changes' : 'Add supplier',
+                label: isEditing
+                    ? context.l10n.commonSaveChanges
+                    : context.l10n.invAddSupplier,
                 onPressed: _submit,
                 loading: _loading,
               ),
