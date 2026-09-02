@@ -4,14 +4,19 @@ import 'commission_kind.dart';
 import 'commission_status.dart';
 
 /// Mirrors the `commissions` table in supabase/migrations/0010_commissions.sql
-/// exactly -- every field here is a real column on that table, plus two
-/// optional display-only fields (staffName, saleReceiptNumber) populated
-/// from the profiles/sales joins in CommissionRepository's select.
+/// and its Phase 2 extension (0036_commissions_redemption_source.sql) --
+/// every field here is a real column on that table, plus two optional
+/// display-only fields (staffName, saleReceiptNumber) populated from the
+/// profiles/sales joins in CommissionRepository's select. saleId/saleItemId
+/// are nullable: a redemption-driven commission (customerPackageRedemptionId
+/// set instead) has neither -- see 0036's header for the exactly-one-source
+/// invariant enforced server-side.
 class Commission {
   final String id;
   final String businessId;
-  final String saleId;
-  final String saleItemId;
+  final String? saleId;
+  final String? saleItemId;
+  final String? customerPackageRedemptionId;
   final String staffId;
   final String? staffName;
   final String? saleReceiptNumber;
@@ -24,8 +29,9 @@ class Commission {
   const Commission({
     required this.id,
     required this.businessId,
-    required this.saleId,
-    required this.saleItemId,
+    this.saleId,
+    this.saleItemId,
+    this.customerPackageRedemptionId,
     required this.staffId,
     this.staffName,
     this.saleReceiptNumber,
@@ -42,8 +48,9 @@ class Commission {
     return Commission(
       id: json['id'] as String,
       businessId: json['business_id'] as String,
-      saleId: json['sale_id'] as String,
-      saleItemId: json['sale_item_id'] as String,
+      saleId: json['sale_id'] as String?,
+      saleItemId: json['sale_item_id'] as String?,
+      customerPackageRedemptionId: json['customer_package_redemption_id'] as String?,
       staffId: json['staff_id'] as String,
       staffName: profile?['full_name'] as String?,
       saleReceiptNumber: sale?['receipt_number'] as String?,

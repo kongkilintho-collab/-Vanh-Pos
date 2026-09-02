@@ -6,11 +6,15 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/error_banner.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../shared/models/appointment_item.dart';
+import '../../../shared/models/customer_package.dart';
+import '../../../shared/models/customer_package_item.dart';
+import '../../../shared/models/customer_package_status.dart';
 import '../../../shared/models/service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
+import '../../packages/presentation/customer_package_providers.dart';
 import '../../pos/presentation/customer_picker_sheet.dart';
 import '../../pos/presentation/pos_providers.dart';
 import '../../services/presentation/service_providers.dart';
@@ -47,6 +51,7 @@ class _AppointmentFormSheetState extends ConsumerState<_AppointmentFormSheet> {
   String? _customerName;
   final _notesController = TextEditingController();
   final Set<String> _selectedServiceIds = {};
+  final Map<String, String> _entitlementByService = {};
 
   bool _loading = false;
   String? _error;
@@ -78,8 +83,31 @@ class _AppointmentFormSheetState extends ConsumerState<_AppointmentFormSheet> {
       setState(() {
         _customerId = customer.id;
         _customerName = customer.name;
+        // Entitlement eligibility is customer-specific -- clear any prior
+        // selection rather than carry it over to a different customer.
+        _entitlementByService.clear();
       });
     }
+  }
+
+  /// Client-side filtering only, for UX convenience -- book_appointment and
+  /// set_appointment_status both re-validate ownership/service-match/
+  /// active/expiry/remaining-sessions server-side regardless of what's
+  /// shown here (see 0037/0039's headers).
+  List<CustomerPackageItem> _eligibleEntitlements(
+    List<CustomerPackage> customerPackages,
+    String serviceId,
+  ) {
+    final result = <CustomerPackageItem>[];
+    for (final cp in customerPackages) {
+      if (cp.status != CustomerPackageStatus.active || cp.isExpired) continue;
+      for (final item in cp.items) {
+        if (item.serviceId == serviceId && item.remainingSessions > 0) {
+          result.add(item);
+        }
+      }
+    }
+    return result;
   }
 
   Future<void> _submit(List<Service> services) async {
@@ -112,6 +140,7 @@ class _AppointmentFormSheetState extends ConsumerState<_AppointmentFormSheet> {
             nameSnapshot: s.name,
             durationMinutes: s.durationMinutes,
             priceSnapshot: s.price,
+            customerPackageItemId: _entitlementByService[s.id],
           ),
         )
         .toList();
@@ -220,9 +249,12 @@ class _AppointmentFormSheetState extends ConsumerState<_AppointmentFormSheet> {
               error: (e, _) => Text(friendlyError(e, context.l10n)),
               data: (services) {
                 final active = services.where((s) => s.active).toList();
+                final customerPackagesAsync = _customerId == null
+                    ? null
+                    : ref.watch(customerPackagesForCustomerProvider(_customerId!));
                 return Column(
                   children: [
-                    for (final s in active)
+                    for (final s in active) ...[
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         value: _selectedServiceIds.contains(s.id),
@@ -238,9 +270,55 @@ class _AppointmentFormSheetState extends ConsumerState<_AppointmentFormSheet> {
                             _selectedServiceIds.add(s.id);
                           } else {
                             _selectedServiceIds.remove(s.id);
+                            _entitlementByService.remove(s.id);
                           }
                         }),
                       ),
+                      if (_selectedServiceIds.contains(s.id) && customerPackagesAsync != null)
+                        customerPackagesAsync.when(
+                          loading: () => const SizedBox.shrink(),
+                          error: (e, _) => const SizedBox.shrink(),
+                          data: (customerPackages) {
+                            final eligible = _eligibleEntitlements(customerPackages, s.id);
+                            if (eligible.isEmpty) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                left: AppSpacing.xl,
+                                bottom: AppSpacing.sm,
+                              ),
+                              child: DropdownButtonFormField<String?>(
+                                initialValue: _entitlementByService[s.id],
+                                isDense: true,
+                                decoration: InputDecoration(
+                                  labelText: context.l10n.pkgUseEntitlementLabel,
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: null,
+                                    child: Text(context.l10n.pkgPayNormally),
+                                  ),
+                                  for (final e in eligible)
+                                    DropdownMenuItem(
+                                      value: e.id,
+                                      child: Text(
+                                        context.l10n.pkgEntitlementOption(
+                                          e.remainingSessions,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (v) => setState(() {
+                                  if (v == null) {
+                                    _entitlementByService.remove(s.id);
+                                  } else {
+                                    _entitlementByService[s.id] = v;
+                                  }
+                                }),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
                     const SizedBox(height: AppSpacing.md),
                     TextFormField(
                       controller: _notesController,

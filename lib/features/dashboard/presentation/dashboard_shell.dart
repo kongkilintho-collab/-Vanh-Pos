@@ -15,6 +15,7 @@ import '../../commissions/presentation/commissions_screen.dart';
 import '../../customers/presentation/customers_screen.dart';
 import '../../expenses/presentation/expenses_screen.dart';
 import '../../inventory/presentation/inventory_screen.dart';
+import '../../packages/presentation/packages_screen.dart';
 import '../../pos/presentation/pos_screen.dart';
 import '../../products/presentation/products_screen.dart';
 import '../../reports/presentation/dashboard_overview_screen.dart';
@@ -44,6 +45,7 @@ class _NavItem {
     'customers' => l10n.navCustomers,
     'appointments' => l10n.navAppointments,
     'services' => l10n.navServices,
+    'packages' => l10n.navPackages,
     'products' => l10n.navProducts,
     'inventory' => l10n.navInventory,
     'staff' => l10n.navStaff,
@@ -85,6 +87,12 @@ const _navItems = [
   _NavItem(
     icon: Icons.spa_outlined,
     id: 'services',
+    minRole: BusinessRole.manager,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.card_giftcard_outlined,
+    id: 'packages',
     minRole: BusinessRole.manager,
     implemented: true,
   ),
@@ -204,6 +212,8 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const SalesScreen();
       case 'services':
         return const ServicesScreen();
+      case 'packages':
+        return const PackagesScreen();
       case 'products':
         return const ProductsScreen();
       case 'customers':

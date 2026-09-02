@@ -9,6 +9,8 @@ import '../../../shared/models/sale_item_kind.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
+import '../../packages/presentation/package_providers.dart';
+import '../../packages/presentation/package_purchase_sheet.dart';
 import '../../products/presentation/product_providers.dart';
 import '../../services/presentation/service_providers.dart';
 import '../domain/cart_line.dart';
@@ -17,7 +19,7 @@ import '../../../l10n/l10n_extensions.dart';
 
 const _uuid = Uuid();
 
-enum _ItemTab { services, products }
+enum _ItemTab { services, products, packages }
 
 class ItemPicker extends ConsumerStatefulWidget {
   const ItemPicker({super.key});
@@ -64,6 +66,11 @@ class _ItemPickerState extends ConsumerState<ItemPicker> {
                 label: Text(context.l10n.posProductsTab),
                 icon: const Icon(Icons.inventory_2_outlined),
               ),
+              ButtonSegment(
+                value: _ItemTab.packages,
+                label: Text(context.l10n.pkgTab),
+                icon: const Icon(Icons.card_giftcard_outlined),
+              ),
             ],
             selected: {_tab},
             onSelectionChanged: (s) => setState(() => _tab = s.first),
@@ -71,9 +78,11 @@ class _ItemPickerState extends ConsumerState<ItemPicker> {
         ),
         const SizedBox(height: AppSpacing.sm),
         Expanded(
-          child: _tab == _ItemTab.services
-              ? _ServicesGrid(query: _query)
-              : _ProductsGrid(query: _query),
+          child: switch (_tab) {
+            _ItemTab.services => _ServicesGrid(query: _query),
+            _ItemTab.products => _ProductsGrid(query: _query),
+            _ItemTab.packages => _PackagesGrid(query: _query),
+          },
         ),
       ],
     );
@@ -187,6 +196,45 @@ class _ProductsGrid extends ConsumerWidget {
                             availableStock: p.stockQuantity,
                           ),
                         ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PackagesGrid extends ConsumerWidget {
+  final String query;
+
+  const _PackagesGrid({required this.query});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final packagesAsync = ref.watch(packagesListProvider);
+    return packagesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) =>
+          Center(child: ErrorBanner(message: friendlyError(err, context.l10n))),
+      data: (packages) {
+        final filtered = packages
+            .where((p) => p.active)
+            .where((p) => query.isEmpty || p.name.toLowerCase().contains(query))
+            .toList();
+        if (filtered.isEmpty) {
+          return _EmptyPickerState(
+            message: packages.isEmpty ? context.l10n.pkgEmptyTitle : context.l10n.posNoMatches,
+          );
+        }
+        return _ItemGrid(
+          count: filtered.length,
+          itemBuilder: (i) {
+            final p = filtered[i];
+            return _ItemCard(
+              title: p.name,
+              subtitle: formatMoney(p.price),
+              icon: Icons.card_giftcard_outlined,
+              onTap: () => showPackagePurchaseSheet(context, p),
             );
           },
         );

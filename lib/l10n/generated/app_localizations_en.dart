@@ -687,6 +687,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navServices => 'Services';
 
   @override
+  String get navPackages => 'Packages';
+
+  @override
   String get navProducts => 'Products';
 
   @override
@@ -1062,4 +1065,107 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get apptRescheduleConfirm => 'Confirm reschedule';
+
+  @override
+  String get pkgAddTitle => 'Add package';
+
+  @override
+  String get pkgEditTitle => 'Edit package';
+
+  @override
+  String get pkgEmptyTitle => 'No packages yet';
+
+  @override
+  String get pkgEmptySubtitle =>
+      'Add your first package to start selling memberships.';
+
+  @override
+  String get pkgNoServicesYet => 'No services yet';
+
+  @override
+  String get pkgNameLabel => 'Package name';
+
+  @override
+  String get pkgDescriptionOptionalLabel => 'Description (optional)';
+
+  @override
+  String get pkgPriceLak => 'Price (LAK)';
+
+  @override
+  String get pkgValidityDaysOptionalLabel => 'Validity in days (optional)';
+
+  @override
+  String get pkgServicesLabel => 'Included services';
+
+  @override
+  String get pkgServiceLabel => 'Service';
+
+  @override
+  String get pkgSessionsLabel => 'Sessions';
+
+  @override
+  String get pkgAddServiceAction => 'Add service';
+
+  @override
+  String get pkgSelectAtLeastOneService => 'Select at least one service';
+
+  @override
+  String get pkgTab => 'Packages';
+
+  @override
+  String get pkgSelectCustomer => 'Select customer';
+
+  @override
+  String get pkgCustomerRequired =>
+      'A customer is required to purchase a package';
+
+  @override
+  String get pkgPurchaseAction => 'Purchase package';
+
+  @override
+  String get pkgUseEntitlementLabel => 'Use package session';
+
+  @override
+  String get pkgPayNormally => 'Pay normally';
+
+  @override
+  String pkgEntitlementOption(int remaining) {
+    return '$remaining session(s) remaining';
+  }
+
+  @override
+  String get pkgCoveredByPackage => 'Covered by package';
+
+  @override
+  String pkgRedemptionRemaining(String name, int remaining, int total) {
+    return '$name: $remaining of $total sessions remaining';
+  }
+
+  @override
+  String get pkgMembershipsTitle => 'Memberships';
+
+  @override
+  String get pkgNoMembershipsYet => 'No packages purchased yet.';
+
+  @override
+  String get pkgNeverExpires => 'Never expires';
+
+  @override
+  String pkgExpiresOn(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String pkgItemRemaining(String name, int remaining, int total) {
+    return '$name: $remaining of $total remaining';
+  }
+
+  @override
+  String get pkgStatusActive => 'Active';
+
+  @override
+  String get pkgStatusExpired => 'Expired';
+
+  @override
+  String get pkgStatusCancelled => 'Cancelled';
 }

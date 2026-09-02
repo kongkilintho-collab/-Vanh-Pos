@@ -1352,6 +1352,12 @@ abstract class AppLocalizations {
   /// **'Services'**
   String get navServices;
 
+  /// No description provided for @navPackages.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages'**
+  String get navPackages;
+
   /// No description provided for @navProducts.
   ///
   /// In en, this message translates to:
@@ -2058,6 +2064,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Confirm reschedule'**
   String get apptRescheduleConfirm;
+
+  /// No description provided for @pkgAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add package'**
+  String get pkgAddTitle;
+
+  /// No description provided for @pkgEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit package'**
+  String get pkgEditTitle;
+
+  /// No description provided for @pkgEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No packages yet'**
+  String get pkgEmptyTitle;
+
+  /// No description provided for @pkgEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first package to start selling memberships.'**
+  String get pkgEmptySubtitle;
+
+  /// No description provided for @pkgNoServicesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No services yet'**
+  String get pkgNoServicesYet;
+
+  /// No description provided for @pkgNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Package name'**
+  String get pkgNameLabel;
+
+  /// No description provided for @pkgDescriptionOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get pkgDescriptionOptionalLabel;
+
+  /// No description provided for @pkgPriceLak.
+  ///
+  /// In en, this message translates to:
+  /// **'Price (LAK)'**
+  String get pkgPriceLak;
+
+  /// No description provided for @pkgValidityDaysOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Validity in days (optional)'**
+  String get pkgValidityDaysOptionalLabel;
+
+  /// No description provided for @pkgServicesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Included services'**
+  String get pkgServicesLabel;
+
+  /// No description provided for @pkgServiceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get pkgServiceLabel;
+
+  /// No description provided for @pkgSessionsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get pkgSessionsLabel;
+
+  /// No description provided for @pkgAddServiceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add service'**
+  String get pkgAddServiceAction;
+
+  /// No description provided for @pkgSelectAtLeastOneService.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one service'**
+  String get pkgSelectAtLeastOneService;
+
+  /// No description provided for @pkgTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages'**
+  String get pkgTab;
+
+  /// No description provided for @pkgSelectCustomer.
+  ///
+  /// In en, this message translates to:
+  /// **'Select customer'**
+  String get pkgSelectCustomer;
+
+  /// No description provided for @pkgCustomerRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'A customer is required to purchase a package'**
+  String get pkgCustomerRequired;
+
+  /// No description provided for @pkgPurchaseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase package'**
+  String get pkgPurchaseAction;
+
+  /// No description provided for @pkgUseEntitlementLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Use package session'**
+  String get pkgUseEntitlementLabel;
+
+  /// No description provided for @pkgPayNormally.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay normally'**
+  String get pkgPayNormally;
+
+  /// No description provided for @pkgEntitlementOption.
+  ///
+  /// In en, this message translates to:
+  /// **'{remaining} session(s) remaining'**
+  String pkgEntitlementOption(int remaining);
+
+  /// No description provided for @pkgCoveredByPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Covered by package'**
+  String get pkgCoveredByPackage;
+
+  /// No description provided for @pkgRedemptionRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: {remaining} of {total} sessions remaining'**
+  String pkgRedemptionRemaining(String name, int remaining, int total);
+
+  /// No description provided for @pkgMembershipsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memberships'**
+  String get pkgMembershipsTitle;
+
+  /// No description provided for @pkgNoMembershipsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No packages purchased yet.'**
+  String get pkgNoMembershipsYet;
+
+  /// No description provided for @pkgNeverExpires.
+  ///
+  /// In en, this message translates to:
+  /// **'Never expires'**
+  String get pkgNeverExpires;
+
+  /// No description provided for @pkgExpiresOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String pkgExpiresOn(String date);
+
+  /// No description provided for @pkgItemRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: {remaining} of {total} remaining'**
+  String pkgItemRemaining(String name, int remaining, int total);
+
+  /// No description provided for @pkgStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get pkgStatusActive;
+
+  /// No description provided for @pkgStatusExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get pkgStatusExpired;
+
+  /// No description provided for @pkgStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get pkgStatusCancelled;
 }
 
 class _AppLocalizationsDelegate

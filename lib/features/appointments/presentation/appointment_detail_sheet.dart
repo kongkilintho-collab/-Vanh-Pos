@@ -189,11 +189,23 @@ class _AppointmentDetailSheetState
             icon: Icons.badge_outlined,
             label: appointment.staffName,
           ),
-          for (final item in appointment.items)
+          for (final item in appointment.items) ...[
             _DetailRow(
               icon: Icons.spa_outlined,
               label: '${item.nameSnapshot} (${item.durationMinutes} min, ${formatMoney(item.priceSnapshot)})',
             ),
+            if (item.customerPackageItemId != null)
+              _DetailRow(
+                icon: Icons.card_giftcard_outlined,
+                label: item.packageTotalSessions != null
+                    ? context.l10n.pkgRedemptionRemaining(
+                        item.packageNameSnapshot ?? '',
+                        item.packageTotalSessions! - (item.packageUsedSessions ?? 0),
+                        item.packageTotalSessions!,
+                      )
+                    : context.l10n.pkgCoveredByPackage,
+              ),
+          ],
           if (appointment.notes != null && appointment.notes!.isNotEmpty)
             _DetailRow(icon: Icons.notes_outlined, label: appointment.notes!),
           if (appointment.cancelReason != null &&

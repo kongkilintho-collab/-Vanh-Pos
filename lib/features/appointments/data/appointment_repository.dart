@@ -33,9 +33,8 @@ class AppointmentRepository {
         .lt('start_at', rangeEnd.toIso8601String())
         .gt('end_at', rangeStart.toIso8601String())
         .order('start_at');
-    return (rows as List)
-        .map((r) => Appointment.fromJson(r as Map<String, dynamic>))
-        .toList();
+    final hydrated = await _hydratePackageItems((rows as List).cast<Map<String, dynamic>>());
+    return hydrated.map(Appointment.fromJson).toList();
   }
 
   /// The RPCs return only the bare `appointments` row (no joins); fetch the
@@ -47,7 +46,52 @@ class AppointmentRepository {
         .eq('business_id', businessId)
         .eq('id', id)
         .single();
-    return Appointment.fromJson(row);
+    final hydrated = await _hydratePackageItems([row]);
+    return Appointment.fromJson(hydrated.single);
+  }
+
+  /// appointment_items(*) deliberately does NOT embed customer_package_items
+  /// via a PostgREST relationship -- that embed would make every appointment
+  /// read fail outright (PGRST200) on any project where the Phase 2
+  /// migrations aren't live yet, since Phase 1's appointments feature must
+  /// keep working independently of Phase 2. Instead this resolves the
+  /// handful of linked customer_package_items with one extra query, and
+  /// only when at least one item actually carries a
+  /// customer_package_item_id -- which is null on every row until a Phase 2
+  /// migration + booking has actually happened, so this is a no-op (no
+  /// extra query at all) for any appointment with no package link.
+  Future<List<Map<String, dynamic>>> _hydratePackageItems(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final ids = <String>{};
+    for (final row in rows) {
+      final items = (row['appointment_items'] as List<dynamic>?) ?? const [];
+      for (final item in items) {
+        final id = (item as Map<String, dynamic>)['customer_package_item_id'] as String?;
+        if (id != null) ids.add(id);
+      }
+    }
+    if (ids.isEmpty) return rows;
+
+    final cpiRows = await _client
+        .from('customer_package_items')
+        .select('id, name_snapshot, total_sessions, used_sessions')
+        .inFilter('id', ids.toList());
+    final byId = {
+      for (final r in (cpiRows as List).cast<Map<String, dynamic>>()) r['id'] as String: r,
+    };
+
+    for (final row in rows) {
+      final items = (row['appointment_items'] as List<dynamic>?) ?? const [];
+      for (final item in items) {
+        final m = item as Map<String, dynamic>;
+        final id = m['customer_package_item_id'] as String?;
+        if (id != null && byId.containsKey(id)) {
+          m['customer_package_items'] = byId[id];
+        }
+      }
+    }
+    return rows;
   }
 
   Future<Appointment> book({

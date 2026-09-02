@@ -3404,8 +3404,948 @@ $$;
 revoke execute on function reschedule_appointment(uuid, uuid, uuid, timestamptz, timestamptz) from public;
 revoke execute on function reschedule_appointment(uuid, uuid, uuid, timestamptz, timestamptz) from anon;
 grant execute on function reschedule_appointment(uuid, uuid, uuid, timestamptz, timestamptz) to authenticated;
+commit;
+
+begin;
+
+-- ===== 0032_packages_schema.sql =====
+-- Phase 2: Packages / Membership -- catalog + entitlement schema.
+--
+-- Two different write-control classes, matching this codebase's own
+-- established split:
+--   - packages/package_items: a catalog definition, same class as
+--     services/products (0006/0015) -- SELECT for any member, direct
+--     INSERT/UPDATE/DELETE at MANAGER+ via RLS, no RPC needed.
+--   - customer_packages/customer_package_items/customer_package_redemptions:
+--     financial/entitlement records, same class as appointments (0030) --
+--     SELECT-only RLS, all writes through purchase_package/
+--     set_appointment_status/void_sale (0036/0037).
+--
+-- Purchased packages are immutable snapshots (name_snapshot,
+-- price_paid_snapshot, per-item name_snapshot/total_sessions) so editing or
+-- deleting a package definition never retroactively changes what a
+-- customer already owns -- package_id/service_id links on the customer-
+-- facing tables are therefore nullable and `on delete set null`.
+--
+-- customer_package_redemptions is an append-only ledger (mirrors
+-- inventory_movements' role): reversal is the `reversed` flag, never a
+-- physical delete. The partial unique index on appointment_item_id is the
+-- DB-level duplicate-redemption guard, not just an application check.
+
+create type customer_package_status as enum ('ACTIVE', 'EXPIRED', 'CANCELLED');
+
+create table packages (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  name text not null check (char_length(trim(name)) > 0),
+  description text,
+  price numeric(14,2) not null check (price >= 0),
+  validity_days integer check (validity_days is null or validity_days > 0),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index packages_business_id_idx on packages(business_id);
+
+create trigger packages_set_updated_at
+  before update on packages
+  for each row execute function set_updated_at();
+
+create table package_items (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  package_id uuid not null references packages(id) on delete cascade,
+  service_id uuid not null references services(id) on delete restrict,
+  session_count integer not null check (session_count > 0),
+  created_at timestamptz not null default now()
+);
+
+create index package_items_package_id_idx on package_items(package_id);
+create index package_items_business_id_idx on package_items(business_id);
+create index package_items_service_id_idx on package_items(service_id);
+
+create table customer_packages (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  customer_id uuid not null references customers(id) on delete restrict,
+  package_id uuid references packages(id) on delete set null,
+  sale_id uuid references sales(id) on delete set null,
+  name_snapshot text not null,
+  price_paid_snapshot numeric(14,2) not null check (price_paid_snapshot >= 0),
+  purchased_at timestamptz not null default now(),
+  expires_at timestamptz,
+  status customer_package_status not null default 'ACTIVE',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index customer_packages_business_id_idx on customer_packages(business_id);
+create index customer_packages_customer_id_idx on customer_packages(customer_id);
+create index customer_packages_sale_id_idx on customer_packages(sale_id);
+create index customer_packages_status_idx on customer_packages(business_id, status);
+
+create trigger customer_packages_set_updated_at
+  before update on customer_packages
+  for each row execute function set_updated_at();
+
+create table customer_package_items (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  customer_package_id uuid not null references customer_packages(id) on delete cascade,
+  service_id uuid references services(id) on delete set null,
+  name_snapshot text not null,
+  total_sessions integer not null check (total_sessions > 0),
+  used_sessions integer not null default 0 check (used_sessions >= 0 and used_sessions <= total_sessions),
+  created_at timestamptz not null default now()
+);
+
+create index customer_package_items_customer_package_id_idx on customer_package_items(customer_package_id);
+create index customer_package_items_business_id_idx on customer_package_items(business_id);
+create index customer_package_items_service_id_idx on customer_package_items(service_id);
+
+create table customer_package_redemptions (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  customer_package_item_id uuid not null references customer_package_items(id) on delete restrict,
+  appointment_id uuid references appointments(id) on delete set null,
+  appointment_item_id uuid references appointment_items(id) on delete set null,
+  staff_id uuid references profiles(id) on delete set null,
+  redeemed_at timestamptz not null default now(),
+  reversed boolean not null default false
+);
+
+create index customer_package_redemptions_business_id_idx on customer_package_redemptions(business_id);
+create index customer_package_redemptions_item_idx on customer_package_redemptions(customer_package_item_id);
+
+-- Duplicate-redemption guard: at most one non-reversed redemption per
+-- appointment_item. NULL appointment_item_id rows (none expected via the
+-- approved RPC, but not structurally impossible) are simply not covered by
+-- this partial index, same as any other partial-unique-index NULL handling.
+create unique index customer_package_redemptions_appointment_item_unique
+  on customer_package_redemptions(appointment_item_id)
+  where not reversed and appointment_item_id is not null;
+
+alter table packages enable row level security;
+alter table package_items enable row level security;
+alter table customer_packages enable row level security;
+alter table customer_package_items enable row level security;
+alter table customer_package_redemptions enable row level security;
+
+-- packages / package_items: catalog pattern (mirrors services/products).
+
+create policy packages_select on packages
+  for select using (is_member(business_id));
+
+create policy packages_insert on packages
+  for insert with check (has_role_at_least(business_id, 'MANAGER'));
+
+create policy packages_update on packages
+  for update using (has_role_at_least(business_id, 'MANAGER'))
+  with check (has_role_at_least(business_id, 'MANAGER'));
+
+create policy packages_delete on packages
+  for delete using (has_role_at_least(business_id, 'MANAGER'));
+
+create policy package_items_select on package_items
+  for select using (is_member(business_id));
+
+create policy package_items_insert on package_items
+  for insert with check (has_role_at_least(business_id, 'MANAGER'));
+
+create policy package_items_update on package_items
+  for update using (has_role_at_least(business_id, 'MANAGER'))
+  with check (has_role_at_least(business_id, 'MANAGER'));
+
+create policy package_items_delete on package_items
+  for delete using (has_role_at_least(business_id, 'MANAGER'));
+
+-- customer_packages / customer_package_items / customer_package_redemptions:
+-- financial/entitlement pattern (mirrors appointments) -- SELECT only, all
+-- writes through purchase_package/set_appointment_status/void_sale.
+
+create policy customer_packages_select on customer_packages
+  for select using (is_member(business_id));
+
+create policy customer_package_items_select on customer_package_items
+  for select using (is_member(business_id));
+
+create policy customer_package_redemptions_select on customer_package_redemptions
+  for select using (is_member(business_id));
+
+-- ===== 0033_appointment_items_package_link.sql =====
+-- Phase 2: lets a booked appointment_item declare, up front, which
+-- customer_package_item it's meant to be covered by. Nullable and purely
+-- additive -- every existing Phase 1 row/RPC call is unaffected (defaults
+-- null). The actual session redemption still only happens at completion
+-- (0036_package_rpcs.sql extends set_appointment_status), never at
+-- booking -- this column only records intent, so it must not be trusted as
+-- proof of redemption on its own.
+
+alter table appointment_items
+  add column customer_package_item_id uuid references customer_package_items(id) on delete set null;
+
+create index appointment_items_customer_package_item_id_idx
+  on appointment_items(customer_package_item_id)
+  where customer_package_item_id is not null;
 
 commit;
+
+begin;
+
+-- ===== 0034_sale_item_kind_package_value.sql =====
+-- Phase 2: adds the PACKAGE value to sale_item_kind.
+--
+-- This is deliberately its OWN migration, containing nothing else.
+-- PostgreSQL does not allow a newly added enum value to be used (compared,
+-- cast from a literal, etc.) within the same transaction that added it --
+-- and a multi-statement SQL Editor paste runs as a single implicit
+-- transaction. 0035_sale_items_package_column.sql (which needs to write
+-- `item_type = 'PACKAGE'` into a CHECK constraint) must therefore be
+-- applied as a separate paste/transaction, after this one has committed.
+alter type sale_item_kind add value 'PACKAGE';
+
+commit;
+
+begin;
+
+-- ===== 0035_sale_items_package_column.sql =====
+-- Phase 2: sale_items gains a PACKAGE line-item shape, one row per package
+-- purchase (created by purchase_package, 0037_package_rpcs.sql). Applied
+-- after 0034 has committed the PACKAGE enum value -- see that file's header
+-- for why this must be a separate transaction.
+--
+-- package_id is nullable and `on delete set null`, same treatment as
+-- customer_packages.package_id (0032): the sale_items row already carries
+-- its own name_snapshot/unit_price, so it stays fully meaningful even if
+-- the package definition is later deleted.
+
+alter table sale_items
+  add column package_id uuid references packages(id) on delete set null;
+
+create index sale_items_package_id_idx on sale_items(package_id);
+
+alter table sale_items drop constraint sale_items_item_reference_chk;
+
+alter table sale_items add constraint sale_items_item_reference_chk check (
+  (item_type = 'SERVICE' and service_id is not null and product_id is null and package_id is null) or
+  (item_type = 'PRODUCT' and product_id is not null and service_id is null and package_id is null) or
+  (item_type = 'PACKAGE' and package_id is not null and service_id is null and product_id is null)
+);
+
+-- ===== 0036_commissions_redemption_source.sql =====
+-- Phase 2: lets a commission originate from a package-session redemption
+-- instead of a sale_item -- approved design (see Phase 2 architecture
+-- review): commission is earned by whoever performs the redeemed service,
+-- not at package purchase time, so redemption-driven commissions have no
+-- sale/sale_item at all.
+--
+-- sale_id and sale_item_id both become nullable; the new CHECK constraint
+-- enforces the two allowed shapes exactly (never a commission with neither
+-- source, or with both):
+--   sale-driven:      sale_id NOT NULL, sale_item_id NOT NULL, redemption NULL
+--   redemption-driven: sale_id NULL,     sale_item_id NULL,     redemption NOT NULL
+--
+-- customer_package_redemption_id uses ON DELETE RESTRICT (not CASCADE):
+-- redemptions are financial/attribution history and must never silently
+-- disappear out from under a commission row, the same reasoning already
+-- applied to sales.cashier_id/payments.created_by/appointments.staff_id
+-- (all `on delete restrict`) elsewhere in this schema.
+--
+-- No existing repository, screen, or report query is touched here --
+-- CommissionRepository.updateStatus only ever writes `status`, and
+-- reports_repository's commission query only selects commission_amount;
+-- neither depends on sale_id/sale_item_id shape. The one real Flutter
+-- dependency (Commission.fromJson's non-nullable saleId/saleItemId casts)
+-- is fixed in the same Phase 2 change set, not here.
+
+alter table commissions alter column sale_id drop not null;
+alter table commissions alter column sale_item_id drop not null;
+
+alter table commissions
+  add column customer_package_redemption_id uuid references customer_package_redemptions(id) on delete restrict;
+
+create unique index commissions_redemption_unique on commissions(customer_package_redemption_id)
+  where customer_package_redemption_id is not null;
+
+alter table commissions add constraint commissions_source_chk check (
+  (sale_id is not null and sale_item_id is not null and customer_package_redemption_id is null)
+  or
+  (sale_id is null and sale_item_id is null and customer_package_redemption_id is not null)
+);
+
+-- ===== 0037_package_rpcs.sql =====
+-- Phase 2: purchase_package (new) and set_appointment_status (extended).
+--
+-- purchase_package follows complete_sale's exact proven shape: auth.uid()
+-- guard, has_role_at_least(p_business_id, 'CASHIER'), idempotency
+-- short-circuit, tenant-scoped lookups for every referenced id, and
+-- server-authoritative pricing -- packages.price is read here and used for
+-- every downstream calculation; the client never supplies a price. Tax is
+-- derived the same way 0029 fixed complete_sale to derive it (from the
+-- business's own tax_enabled/tax_rate, never a client-supplied amount) --
+-- there is no legacy p_tax_amount parameter to keep for wire compatibility
+-- since this RPC is new. A customer is required (not optional, unlike
+-- complete_sale) per the approved UX requirement that package purchases
+-- always have an owner.
+--
+-- No sale_items.staff_id/commission on the PACKAGE line -- approved
+-- design: no service-performance commission is earned merely by selling a
+-- package (see 0036's header). Commission is created only at redemption,
+-- inside set_appointment_status below.
+create or replace function purchase_package(
+  p_business_id uuid,
+  p_branch_id uuid,
+  p_customer_id uuid,
+  p_package_id uuid,
+  p_discount_amount numeric,
+  p_payment_method payment_method_enum,
+  p_paid_amount numeric,
+  p_idempotency_key text
+)
+returns customer_packages
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_package packages;
+  v_customer_package customer_packages;
+  v_existing_sale sales;
+  v_sale sales;
+  v_business businesses;
+  v_item record;
+  v_subtotal numeric(14,2);
+  v_taxable_base numeric(14,2);
+  v_tax numeric(14,2);
+  v_total numeric(14,2);
+  v_change numeric(14,2);
+  v_payment_status payment_status_enum;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to purchase a package';
+  end if;
+
+  if p_customer_id is null then
+    raise exception 'A customer is required to purchase a package';
+  end if;
+
+  if p_idempotency_key is null then
+    raise exception 'Idempotency key is required';
+  end if;
+
+  select * into v_existing_sale from sales
+    where business_id = p_business_id and idempotency_key = p_idempotency_key;
+  if found then
+    select * into v_customer_package from customer_packages where sale_id = v_existing_sale.id;
+    return v_customer_package;
+  end if;
+
+  if not exists (
+    select 1 from customers where id = p_customer_id and business_id = p_business_id
+  ) then
+    raise exception 'Customer not found in this business';
+  end if;
+
+  select * into v_package from packages
+    where id = p_package_id and business_id = p_business_id and active = true;
+
+  if v_package.id is null then
+    raise exception 'Package not found or inactive in this business';
+  end if;
+
+  if not exists (select 1 from package_items where package_id = p_package_id) then
+    raise exception 'Package has no included services';
+  end if;
+
+  select * into v_business from businesses where id = p_business_id;
+
+  v_subtotal := v_package.price;
+  v_taxable_base := v_subtotal - coalesce(p_discount_amount, 0);
+  if v_taxable_base < 0 then
+    raise exception 'Discount cannot exceed the package price';
+  end if;
+
+  if v_business.tax_enabled and v_business.tax_rate > 0 and v_taxable_base > 0 then
+    v_tax := round(v_taxable_base * v_business.tax_rate / 100, 2);
+  else
+    v_tax := 0;
+  end if;
+
+  v_total := v_taxable_base + v_tax;
+
+  if p_paid_amount is null then
+    raise exception 'Payment amount is required';
+  elsif p_paid_amount < 0 then
+    raise exception 'Payment amount cannot be negative';
+  elsif p_paid_amount < v_total then
+    raise exception 'Payment amount cannot be less than the package total';
+  end if;
+
+  v_payment_status := 'COMPLETED';
+  v_change := p_paid_amount - v_total;
+
+  insert into sales (
+    business_id, branch_id, customer_id, cashier_id,
+    subtotal, discount_amount, tax_amount, total_amount,
+    paid_amount, change_amount, status, payment_status, idempotency_key
+  ) values (
+    p_business_id, p_branch_id, p_customer_id, auth.uid(),
+    v_subtotal, coalesce(p_discount_amount, 0), v_tax, v_total,
+    p_paid_amount, v_change, 'COMPLETED', v_payment_status, p_idempotency_key
+  ) returning * into v_sale;
+
+  insert into sale_items (
+    business_id, sale_id, item_type, package_id,
+    name_snapshot, quantity, unit_price, discount_amount, subtotal, commission_amount
+  ) values (
+    p_business_id, v_sale.id, 'PACKAGE', p_package_id,
+    v_package.name, 1, v_package.price, coalesce(p_discount_amount, 0), v_taxable_base, 0
+  );
+
+  insert into payments (business_id, sale_id, payment_method, amount, status, created_by)
+  values (p_business_id, v_sale.id, p_payment_method, p_paid_amount, v_payment_status, auth.uid());
+
+  insert into customer_packages (
+    business_id, customer_id, package_id, sale_id, name_snapshot, price_paid_snapshot, expires_at, status
+  ) values (
+    p_business_id, p_customer_id, p_package_id, v_sale.id, v_package.name, v_total,
+    case when v_package.validity_days is not null then now() + (v_package.validity_days || ' days')::interval else null end,
+    'ACTIVE'
+  ) returning * into v_customer_package;
+
+  for v_item in select * from package_items where package_id = p_package_id
+  loop
+    insert into customer_package_items (
+      business_id, customer_package_id, service_id, name_snapshot, total_sessions, used_sessions
+    )
+    select p_business_id, v_customer_package.id, v_item.service_id, s.name, v_item.session_count, 0
+    from services s where s.id = v_item.service_id;
+  end loop;
+
+  perform set_config('app.trusted_customer_stats_update', 'true', true);
+  update customers set
+    total_spent = total_spent + v_total,
+    visit_count = visit_count + 1,
+    last_visit_at = now()
+  where id = p_customer_id and business_id = p_business_id;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'CREATE', 'customer_package', v_customer_package.id, to_jsonb(v_customer_package));
+
+  return v_customer_package;
+end;
+$$;
+
+revoke execute on function purchase_package(
+  uuid, uuid, uuid, uuid, numeric, payment_method_enum, numeric, text
+) from public;
+revoke execute on function purchase_package(
+  uuid, uuid, uuid, uuid, numeric, payment_method_enum, numeric, text
+) from anon;
+grant execute on function purchase_package(
+  uuid, uuid, uuid, uuid, numeric, payment_method_enum, numeric, text
+) to authenticated;
+
+-- set_appointment_status: every line above the "-- Phase 2:" marker below
+-- is verbatim from 0031_appointment_rpcs.sql -- same signature, same
+-- guards, same state machine, same original audit_logs insert. The only
+-- change is the new block appended before RETURN, which only executes when
+-- p_status = 'COMPLETED' and only touches appointment_items that were
+-- explicitly linked to a package entitlement at booking time
+-- (customer_package_item_id is not null) -- every other transition, and
+-- every appointment with no package-linked items, is byte-for-byte
+-- unchanged from Phase 1.
+--
+-- Redemption re-validates everything server-side at completion time (never
+-- trusting that booking-time eligibility still holds): the entitlement's
+-- customer must match the appointment's customer (the cross-check flagged
+-- in the Phase 2 audit as the one risk with no existing precedent to copy),
+-- its service must match the booked service, the package must still be
+-- ACTIVE and not expired, and it must have a remaining session -- each
+-- customer_package_items row is locked FOR UPDATE before any of this is
+-- checked, so two appointments racing for the same entitlement's last
+-- session resolve to exactly one success (the second blocks on the lock,
+-- then observes used_sessions = total_sessions once it resumes and
+-- raises). The partial unique index from 0032 is the second, DB-level
+-- layer against double redemption, not the only one.
+--
+-- Commission is created only here, at redemption, per the approved design
+-- (0036) -- never at package purchase. Staff validity is re-checked against
+-- business_members at redemption time, the same defensive re-check
+-- complete_sale already performs for its own commission attribution.
+create or replace function set_appointment_status(
+  p_business_id uuid,
+  p_appointment_id uuid,
+  p_status appointment_status,
+  p_cancel_reason text
+)
+returns appointments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appointment appointments;
+  v_old_data jsonb;
+  v_allowed appointment_status[];
+  v_appt_item appointment_items;
+  v_cpi customer_package_items;
+  v_cp customer_packages;
+  v_redemption customer_package_redemptions;
+  v_staff_id uuid;
+  v_staff_valid boolean;
+  v_commission_type commission_kind;
+  v_commission_value numeric(14,2);
+  v_commission_amount numeric(14,2);
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to change appointment status';
+  end if;
+
+  select * into v_appointment from appointments
+    where id = p_appointment_id and business_id = p_business_id
+    for update;
+
+  if v_appointment.id is null then
+    raise exception 'Appointment not found in this business';
+  end if;
+
+  v_allowed := case v_appointment.status
+    when 'SCHEDULED' then array['CONFIRMED', 'CANCELLED', 'NO_SHOW']::appointment_status[]
+    when 'CONFIRMED' then array['CHECKED_IN', 'CANCELLED', 'NO_SHOW']::appointment_status[]
+    when 'CHECKED_IN' then array['COMPLETED', 'CANCELLED']::appointment_status[]
+    else array[]::appointment_status[]
+  end;
+
+  if not (p_status = any(v_allowed)) then
+    raise exception 'Cannot move an appointment from % to %', v_appointment.status, p_status;
+  end if;
+
+  v_old_data := to_jsonb(v_appointment);
+
+  update appointments set
+    status = p_status,
+    cancel_reason = case when p_status = 'CANCELLED' then p_cancel_reason else cancel_reason end
+  where id = p_appointment_id
+  returning * into v_appointment;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, old_data, new_data)
+  values (p_business_id, auth.uid(), 'UPDATE', 'appointment', v_appointment.id, v_old_data, to_jsonb(v_appointment));
+
+  -- Phase 2: completion-time package redemption.
+  if p_status = 'COMPLETED' then
+    for v_appt_item in
+      select * from appointment_items
+      where appointment_id = p_appointment_id and customer_package_item_id is not null
+    loop
+      select * into v_cpi from customer_package_items
+        where id = v_appt_item.customer_package_item_id and business_id = p_business_id
+        for update;
+
+      if v_cpi.id is null then
+        raise exception 'Package entitlement not found in this business';
+      end if;
+
+      select * into v_cp from customer_packages where id = v_cpi.customer_package_id;
+
+      if v_cp.customer_id is distinct from v_appointment.customer_id then
+        raise exception 'This package entitlement does not belong to the appointment''s customer';
+      end if;
+
+      if v_cpi.service_id is distinct from v_appt_item.service_id then
+        raise exception 'This package entitlement does not cover the booked service';
+      end if;
+
+      if v_cp.status <> 'ACTIVE' then
+        raise exception 'This package is not active';
+      end if;
+
+      if v_cp.expires_at is not null and v_cp.expires_at < now() then
+        raise exception 'This package has expired';
+      end if;
+
+      if v_cpi.used_sessions >= v_cpi.total_sessions then
+        raise exception 'No remaining sessions on this package entitlement';
+      end if;
+
+      if exists (
+        select 1 from customer_package_redemptions
+        where appointment_item_id = v_appt_item.id and not reversed
+      ) then
+        raise exception 'This service has already been redeemed against a package';
+      end if;
+
+      update customer_package_items set used_sessions = used_sessions + 1
+        where id = v_cpi.id
+        returning * into v_cpi;
+
+      v_staff_id := coalesce(v_appt_item.staff_id, v_appointment.staff_id);
+
+      insert into customer_package_redemptions (
+        business_id, customer_package_item_id, appointment_id, appointment_item_id, staff_id
+      ) values (
+        p_business_id, v_cpi.id, p_appointment_id, v_appt_item.id, v_staff_id
+      ) returning * into v_redemption;
+
+      insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+      values (p_business_id, auth.uid(), 'CREATE', 'customer_package_redemption', v_redemption.id, to_jsonb(v_redemption));
+
+      v_staff_valid := exists (
+        select 1 from business_members
+        where business_id = p_business_id and user_id = v_staff_id and active = true
+      );
+
+      select commission_type, commission_value into v_commission_type, v_commission_value
+        from services where id = v_appt_item.service_id and business_id = p_business_id;
+
+      v_commission_amount := 0;
+      if v_staff_valid and v_commission_type is not null then
+        if v_commission_type = 'PERCENTAGE' then
+          v_commission_amount := round(v_appt_item.price_snapshot * coalesce(v_commission_value, 0) / 100, 2);
+        else
+          v_commission_amount := coalesce(v_commission_value, 0);
+        end if;
+      end if;
+
+      if v_commission_amount > 0 then
+        insert into commissions (
+          business_id, customer_package_redemption_id, staff_id, commission_type,
+          commission_rate, commission_amount, status
+        ) values (
+          p_business_id, v_redemption.id, v_staff_id,
+          v_commission_type, coalesce(v_commission_value, 0), v_commission_amount, 'PENDING'
+        );
+      end if;
+    end loop;
+  end if;
+
+  return v_appointment;
+end;
+$$;
+
+revoke execute on function set_appointment_status(uuid, uuid, appointment_status, text) from public;
+revoke execute on function set_appointment_status(uuid, uuid, appointment_status, text) from anon;
+grant execute on function set_appointment_status(uuid, uuid, appointment_status, text) to authenticated;
+
+-- ===== 0038_void_sale_package_guard.sql =====
+-- Phase 2: extends void_sale with the approved package-void policy --
+-- every line below the "-- Phase 2:" marker inside the function body is
+-- new; every other line (auth guard, role floor, reason requirement, sale
+-- lookup/lock, inventory reversal, commission reversal, sales/payments
+-- update, audit insert) is verbatim from 0026_void_sale.sql.
+--
+-- Policy: a package sale with zero redeemed sessions may still be voided
+-- (and its customer_packages row is cancelled as part of the same
+-- transaction); a package sale with ANY redeemed session is rejected
+-- outright -- no partial reversal, no partial-refund semantics invented.
+-- The check runs immediately after the sale is located/locked and before
+-- any reversal side effect begins, so a rejected void leaves absolutely
+-- nothing touched (same all-or-nothing shape the rest of this function
+-- already has). A non-package sale is entirely unaffected: the new lookup
+-- simply finds no customer_packages row and both new blocks no-op.
+create or replace function void_sale(
+  p_business_id uuid,
+  p_sale_id uuid,
+  p_reason text
+)
+returns sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale sales;
+  v_old_sale jsonb;
+  v_item record;
+  v_product products;
+  v_reversed_commission_count int := 0;
+  v_reversed_inventory_count int := 0;
+  v_skipped_product_deleted_count int := 0;
+  v_customer_package customer_packages;
+  v_has_redemptions boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'MANAGER') then
+    raise exception 'Insufficient permission to void a sale';
+  end if;
+
+  if p_reason is null or char_length(trim(p_reason)) = 0 then
+    raise exception 'A void reason is required';
+  end if;
+
+  select * into v_sale from sales
+    where id = p_sale_id and business_id = p_business_id
+    for update;
+
+  if v_sale.id is null then
+    raise exception 'Sale not found in this business';
+  end if;
+
+  if v_sale.status <> 'COMPLETED' then
+    raise exception 'Only a completed sale can be voided';
+  end if;
+
+  v_old_sale := to_jsonb(v_sale);
+
+  -- Phase 2: reject outright if this sale's package has any redeemed
+  -- session -- checked before any reversal side effect begins.
+  select * into v_customer_package from customer_packages where sale_id = p_sale_id;
+
+  if v_customer_package.id is not null then
+    select exists (
+      select 1 from customer_package_items
+      where customer_package_id = v_customer_package.id and used_sessions > 0
+    ) into v_has_redemptions;
+
+    if v_has_redemptions then
+      raise exception 'Cannot void a package sale that has redeemed sessions';
+    end if;
+  end if;
+
+  for v_item in
+    select * from sale_items where sale_id = p_sale_id and item_type = 'PRODUCT'
+  loop
+    if v_item.product_id is null then
+      v_skipped_product_deleted_count := v_skipped_product_deleted_count + 1;
+      continue;
+    end if;
+
+    select * into v_product from products
+      where id = v_item.product_id and business_id = p_business_id
+      for update;
+
+    if v_product.id is null then
+      v_skipped_product_deleted_count := v_skipped_product_deleted_count + 1;
+      continue;
+    end if;
+
+    update products set stock_quantity = stock_quantity + v_item.quantity
+      where id = v_item.product_id;
+
+    insert into inventory_movements (
+      business_id, branch_id, product_id, movement_type, quantity,
+      reference_type, reference_id, note, created_by
+    ) values (
+      p_business_id, v_sale.branch_id, v_item.product_id, 'RETURN', v_item.quantity,
+      'sale_void', p_sale_id, 'Stock reversed from voided sale ' || v_sale.receipt_number, auth.uid()
+    );
+
+    v_reversed_inventory_count := v_reversed_inventory_count + 1;
+  end loop;
+
+  update commissions set status = 'REVERSED'
+    where sale_id = p_sale_id and status <> 'REVERSED';
+  get diagnostics v_reversed_commission_count = row_count;
+
+  update sales set
+    status = 'VOIDED',
+    void_reason = p_reason,
+    voided_by = auth.uid(),
+    voided_at = now()
+    where id = p_sale_id
+    returning * into v_sale;
+
+  update payments set status = 'REFUNDED'
+    where sale_id = p_sale_id and status <> 'REFUNDED';
+
+  -- Phase 2: cancel the (unused) package entitlement alongside the sale.
+  if v_customer_package.id is not null then
+    update customer_packages set status = 'CANCELLED' where id = v_customer_package.id;
+  end if;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, old_data, new_data, metadata)
+  values (
+    p_business_id, auth.uid(), 'VOID', 'sale', p_sale_id, v_old_sale, to_jsonb(v_sale),
+    jsonb_build_object(
+      'reason', p_reason,
+      'reversed_commission_count', v_reversed_commission_count,
+      'reversed_inventory_line_count', v_reversed_inventory_count,
+      'skipped_product_deleted_lines', v_skipped_product_deleted_count,
+      'package_cancelled', v_customer_package.id is not null
+    )
+  );
+
+  return v_sale;
+end;
+$$;
+
+revoke execute on function void_sale(uuid, uuid, text) from public;
+revoke execute on function void_sale(uuid, uuid, text) from anon;
+grant execute on function void_sale(uuid, uuid, text) to authenticated;
+
+commit;
+
+begin;
+
+-- ===== 0039_book_appointment_package_link.sql =====
+-- Phase 2: book_appointment learns to persist an optional
+-- customer_package_item_id per item (0033's new appointment_items column).
+-- This does NOT change the function's signature -- p_items is still the
+-- same jsonb parameter; unrecognized/absent keys were already ignored, so
+-- every existing caller that doesn't send this field is unaffected.
+--
+-- Booking-time validation here (entitlement belongs to the business, its
+-- owning customer_package.customer_id matches p_customer_id, its
+-- service_id matches the item's service_id) is a UX nicety only -- it lets
+-- an invalid selection be rejected immediately instead of at completion.
+-- It is NOT a substitute for the redemption-time re-validation
+-- set_appointment_status performs (0037): status/expiry/remaining-sessions
+-- can all change between booking and completion, so nothing here is
+-- treated as proof that a session may actually be consumed later.
+--
+-- Every other line is verbatim from 0031_appointment_rpcs.sql.
+create or replace function book_appointment(
+  p_business_id uuid,
+  p_branch_id uuid,
+  p_customer_id uuid,
+  p_staff_id uuid,
+  p_start_at timestamptz,
+  p_end_at timestamptz,
+  p_items jsonb,
+  p_notes text
+)
+returns appointments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appointment appointments;
+  v_item jsonb;
+  v_service_id uuid;
+  v_item_staff_id uuid;
+  v_customer_package_item_id uuid;
+  v_cpi_customer_id uuid;
+  v_cpi_service_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to book an appointment';
+  end if;
+
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'An appointment must have at least one service';
+  end if;
+
+  if not exists (
+    select 1 from business_members
+    where business_id = p_business_id and user_id = p_staff_id and active = true
+  ) then
+    raise exception 'Staff member is not an active member of this business';
+  end if;
+
+  if p_customer_id is not null and not exists (
+    select 1 from customers where id = p_customer_id and business_id = p_business_id
+  ) then
+    raise exception 'Customer not found in this business';
+  end if;
+
+  if p_branch_id is not null and not exists (
+    select 1 from branches where id = p_branch_id and business_id = p_business_id
+  ) then
+    raise exception 'Branch not found in this business';
+  end if;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_service_id := nullif(v_item->>'service_id', '')::uuid;
+    if v_service_id is null or not exists (
+      select 1 from services where id = v_service_id and business_id = p_business_id
+    ) then
+      raise exception 'Service not found in this business';
+    end if;
+
+    v_item_staff_id := nullif(v_item->>'staff_id', '')::uuid;
+    if v_item_staff_id is not null and not exists (
+      select 1 from business_members
+      where business_id = p_business_id and user_id = v_item_staff_id and active = true
+    ) then
+      raise exception 'Item staff member is not an active member of this business';
+    end if;
+
+    -- Phase 2: optional entitlement link, validated at booking time only
+    -- as a UX nicety -- see header.
+    v_customer_package_item_id := nullif(v_item->>'customer_package_item_id', '')::uuid;
+    if v_customer_package_item_id is not null then
+      select cp.customer_id, cpi.service_id into v_cpi_customer_id, v_cpi_service_id
+        from customer_package_items cpi
+        join customer_packages cp on cp.id = cpi.customer_package_id
+        where cpi.id = v_customer_package_item_id and cpi.business_id = p_business_id;
+
+      if v_cpi_customer_id is null then
+        raise exception 'Package entitlement not found in this business';
+      end if;
+
+      if p_customer_id is null or v_cpi_customer_id <> p_customer_id then
+        raise exception 'This package entitlement does not belong to the selected customer';
+      end if;
+
+      if v_cpi_service_id is distinct from v_service_id then
+        raise exception 'This package entitlement does not cover the selected service';
+      end if;
+    end if;
+  end loop;
+
+  begin
+    insert into appointments (
+      business_id, branch_id, customer_id, staff_id, start_at, end_at, notes, created_by
+    ) values (
+      p_business_id, p_branch_id, p_customer_id, p_staff_id, p_start_at, p_end_at, p_notes, auth.uid()
+    ) returning * into v_appointment;
+  exception
+    when exclusion_violation then
+      raise exception 'This staff member already has a booking that overlaps this time range';
+  end;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    insert into appointment_items (
+      business_id, appointment_id, service_id, staff_id, name_snapshot, duration_minutes,
+      price_snapshot, customer_package_item_id
+    ) values (
+      p_business_id, v_appointment.id,
+      nullif(v_item->>'service_id', '')::uuid,
+      nullif(v_item->>'staff_id', '')::uuid,
+      v_item->>'name_snapshot',
+      coalesce((v_item->>'duration_minutes')::int, 30),
+      coalesce((v_item->>'price_snapshot')::numeric, 0),
+      nullif(v_item->>'customer_package_item_id', '')::uuid
+    );
+  end loop;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'CREATE', 'appointment', v_appointment.id, to_jsonb(v_appointment));
+
+  return v_appointment;
+end;
+$$;
+
+revoke execute on function book_appointment(
+  uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
+) from public;
+revoke execute on function book_appointment(
+  uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
+) from anon;
+grant execute on function book_appointment(
+  uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
+) to authenticated;
+commit;
+
 begin;
 
 -- ===== 0040_sale_items_package_fk_restrict.sql =====

@@ -8,9 +8,11 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/error_banner.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../l10n/l10n_extensions.dart';
+import '../../../shared/models/customer_package_status.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
+import '../../packages/presentation/customer_package_providers.dart';
 import 'customer_form_sheet.dart';
 import 'customer_providers.dart';
 
@@ -94,6 +96,10 @@ class CustomerDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _SalesHistory(customerId: customerId),
+                const SizedBox(height: AppSpacing.xxl),
+                Text(context.l10n.pkgMembershipsTitle, style: AppTextStyles.title),
+                const SizedBox(height: AppSpacing.md),
+                _MembershipsSection(customerId: customerId),
                 const SizedBox(height: AppSpacing.xxl),
                 Text(context.l10n.customersNotes, style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.md),
@@ -189,6 +195,106 @@ class _SalesHistory extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _MembershipsSection extends ConsumerWidget {
+  final String customerId;
+
+  const _MembershipsSection({required this.customerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final packagesAsync = ref.watch(customerPackagesForCustomerProvider(customerId));
+
+    return packagesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
+      data: (customerPackages) {
+        if (customerPackages.isEmpty) {
+          return Text(
+            context.l10n.pkgNoMembershipsYet,
+            style: AppTextStyles.body.copyWith(color: AppColors.muted),
+          );
+        }
+        return Column(
+          children: [
+            for (final cp in customerPackages)
+              Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(cp.nameSnapshot, style: AppTextStyles.bodyStrong),
+                          ),
+                          _MembershipStatusChip(status: cp.status, isExpired: cp.isExpired),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        cp.expiresAt == null
+                            ? context.l10n.pkgNeverExpires
+                            : context.l10n.pkgExpiresOn(
+                                DateFormat('MMM d, y').format(cp.expiresAt!.toLocal()),
+                              ),
+                        style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      for (final item in cp.items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            context.l10n.pkgItemRemaining(
+                              item.nameSnapshot,
+                              item.remainingSessions,
+                              item.totalSessions,
+                            ),
+                            style: AppTextStyles.body,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MembershipStatusChip extends StatelessWidget {
+  final CustomerPackageStatus status;
+  final bool isExpired;
+
+  const _MembershipStatusChip({required this.status, required this.isExpired});
+
+  @override
+  Widget build(BuildContext context) {
+    final effective = status == CustomerPackageStatus.active && isExpired
+        ? CustomerPackageStatus.expired
+        : status;
+    final color = switch (effective) {
+      CustomerPackageStatus.active => AppColors.success,
+      CustomerPackageStatus.expired => AppColors.warning,
+      CustomerPackageStatus.cancelled => AppColors.danger,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Text(
+        effective.label(context.l10n),
+        style: AppTextStyles.caption.copyWith(color: color),
+      ),
     );
   }
 }

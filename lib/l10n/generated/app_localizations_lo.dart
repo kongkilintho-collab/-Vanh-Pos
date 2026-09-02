@@ -686,6 +686,9 @@ class AppLocalizationsLo extends AppLocalizations {
   String get navServices => 'ບໍລິການ';
 
   @override
+  String get navPackages => 'ແພັກເກັດ';
+
+  @override
   String get navProducts => 'ສິນຄ້າ';
 
   @override
@@ -1061,4 +1064,106 @@ class AppLocalizationsLo extends AppLocalizations {
 
   @override
   String get apptRescheduleConfirm => 'ຢືນຢັນການປ່ຽນເວລາ';
+
+  @override
+  String get pkgAddTitle => 'ເພີ່ມແພັກເກັດ';
+
+  @override
+  String get pkgEditTitle => 'ແກ້ໄຂແພັກເກັດ';
+
+  @override
+  String get pkgEmptyTitle => 'ຍັງບໍ່ມີແພັກເກັດ';
+
+  @override
+  String get pkgEmptySubtitle =>
+      'ເພີ່ມແພັກເກັດທຳອິດຂອງທ່ານເພື່ອເລີ່ມຂາຍສະມາຊິກ.';
+
+  @override
+  String get pkgNoServicesYet => 'ຍັງບໍ່ມີບໍລິການ';
+
+  @override
+  String get pkgNameLabel => 'ຊື່ແພັກເກັດ';
+
+  @override
+  String get pkgDescriptionOptionalLabel => 'ລາຍລະອຽດ (ບໍ່ບັງຄັບ)';
+
+  @override
+  String get pkgPriceLak => 'ລາຄາ (ກີບ)';
+
+  @override
+  String get pkgValidityDaysOptionalLabel => 'ອາຍຸການໃຊ້ງານ (ວັນ, ບໍ່ບັງຄັບ)';
+
+  @override
+  String get pkgServicesLabel => 'ບໍລິການທີ່ລວມຢູ່';
+
+  @override
+  String get pkgServiceLabel => 'ບໍລິການ';
+
+  @override
+  String get pkgSessionsLabel => 'ຈຳນວນຄັ້ງ';
+
+  @override
+  String get pkgAddServiceAction => 'ເພີ່ມບໍລິການ';
+
+  @override
+  String get pkgSelectAtLeastOneService => 'ກະລຸນາເລືອກຢ່າງໜ້ອຍໜຶ່ງບໍລິການ';
+
+  @override
+  String get pkgTab => 'ແພັກເກັດ';
+
+  @override
+  String get pkgSelectCustomer => 'ເລືອກລູກຄ້າ';
+
+  @override
+  String get pkgCustomerRequired => 'ຕ້ອງມີລູກຄ້າເພື່ອຊື້ແພັກເກັດ';
+
+  @override
+  String get pkgPurchaseAction => 'ຊື້ແພັກເກັດ';
+
+  @override
+  String get pkgUseEntitlementLabel => 'ໃຊ້ສິດຈາກແພັກເກັດ';
+
+  @override
+  String get pkgPayNormally => 'ຈ່າຍເງິນປົກກະຕິ';
+
+  @override
+  String pkgEntitlementOption(int remaining) {
+    return 'ເຫຼືອ $remaining ຄັ້ງ';
+  }
+
+  @override
+  String get pkgCoveredByPackage => 'ຄຸ້ມຄອງໂດຍແພັກເກັດ';
+
+  @override
+  String pkgRedemptionRemaining(String name, int remaining, int total) {
+    return '$name: ເຫຼືອ $remaining ຈາກ $total ຄັ້ງ';
+  }
+
+  @override
+  String get pkgMembershipsTitle => 'ສະມາຊິກ';
+
+  @override
+  String get pkgNoMembershipsYet => 'ຍັງບໍ່ໄດ້ຊື້ແພັກເກັດ.';
+
+  @override
+  String get pkgNeverExpires => 'ບໍ່ໝົດອາຍຸ';
+
+  @override
+  String pkgExpiresOn(String date) {
+    return 'ໝົດອາຍຸ $date';
+  }
+
+  @override
+  String pkgItemRemaining(String name, int remaining, int total) {
+    return '$name: ເຫຼືອ $remaining ຈາກ $total';
+  }
+
+  @override
+  String get pkgStatusActive => 'ໃຊ້ງານຢູ່';
+
+  @override
+  String get pkgStatusExpired => 'ໝົດອາຍຸແລ້ວ';
+
+  @override
+  String get pkgStatusCancelled => 'ຍົກເລີກແລ້ວ';
 }
