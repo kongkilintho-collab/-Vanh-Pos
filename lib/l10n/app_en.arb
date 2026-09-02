@@ -15,6 +15,7 @@
   "commonNotSpecified": "Not specified",
   "commonNoPhoneOnFile": "No phone on file",
   "commonCashier": "Cashier",
+  "commonChoose": "Choose",
 
   "authLoginTagline": "Sign in to your business",
   "authEmailLabel": "Email",
@@ -236,6 +237,7 @@
   "navPos": "POS",
   "navSales": "Sales",
   "navCustomers": "Customers",
+  "navAppointments": "Appointments",
   "navServices": "Services",
   "navProducts": "Products",
   "navInventory": "Inventory",
@@ -353,5 +355,26 @@
   "dateRangeToday": "Today",
   "dateRangeThisWeek": "This week",
   "dateRangeThisMonth": "This month",
-  "dateRangeCustom": "Custom"
+  "dateRangeCustom": "Custom",
+
+  "apptBookTitle": "Book appointment",
+  "apptWalkIn": "Walk-in",
+  "apptCustomerOptional": "Customer (optional)",
+  "apptStaffLabel": "Staff",
+  "apptServicesLabel": "Services",
+  "apptSelectAtLeastOneService": "Select at least one service",
+  "apptNotesOptionalLabel": "Notes (optional)",
+  "apptCalendarMonth": "Month",
+  "apptCalendarWeek": "Week",
+  "apptNoAppointmentsThisDay": "No appointments this day",
+  "apptStatusScheduled": "Scheduled",
+  "apptStatusConfirmed": "Confirmed",
+  "apptStatusCheckedIn": "Checked in",
+  "apptStatusCompleted": "Completed",
+  "apptStatusCancelled": "Cancelled",
+  "apptStatusNoShow": "No-show",
+  "apptCancelReasonTitle": "Cancel appointment",
+  "apptCancelReasonOptionalHint": "Reason (optional)",
+  "apptReschedule": "Reschedule",
+  "apptRescheduleConfirm": "Confirm reschedule"
 }

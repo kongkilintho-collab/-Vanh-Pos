@@ -48,6 +48,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonCashier => 'Cashier';
 
   @override
+  String get commonChoose => 'Choose';
+
+  @override
   String get authLoginTagline => 'Sign in to your business';
 
   @override
@@ -678,6 +681,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navCustomers => 'Customers';
 
   @override
+  String get navAppointments => 'Appointments';
+
+  @override
   String get navServices => 'Services';
 
   @override
@@ -996,4 +1002,64 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dateRangeCustom => 'Custom';
+
+  @override
+  String get apptBookTitle => 'Book appointment';
+
+  @override
+  String get apptWalkIn => 'Walk-in';
+
+  @override
+  String get apptCustomerOptional => 'Customer (optional)';
+
+  @override
+  String get apptStaffLabel => 'Staff';
+
+  @override
+  String get apptServicesLabel => 'Services';
+
+  @override
+  String get apptSelectAtLeastOneService => 'Select at least one service';
+
+  @override
+  String get apptNotesOptionalLabel => 'Notes (optional)';
+
+  @override
+  String get apptCalendarMonth => 'Month';
+
+  @override
+  String get apptCalendarWeek => 'Week';
+
+  @override
+  String get apptNoAppointmentsThisDay => 'No appointments this day';
+
+  @override
+  String get apptStatusScheduled => 'Scheduled';
+
+  @override
+  String get apptStatusConfirmed => 'Confirmed';
+
+  @override
+  String get apptStatusCheckedIn => 'Checked in';
+
+  @override
+  String get apptStatusCompleted => 'Completed';
+
+  @override
+  String get apptStatusCancelled => 'Cancelled';
+
+  @override
+  String get apptStatusNoShow => 'No-show';
+
+  @override
+  String get apptCancelReasonTitle => 'Cancel appointment';
+
+  @override
+  String get apptCancelReasonOptionalHint => 'Reason (optional)';
+
+  @override
+  String get apptReschedule => 'Reschedule';
+
+  @override
+  String get apptRescheduleConfirm => 'Confirm reschedule';
 }

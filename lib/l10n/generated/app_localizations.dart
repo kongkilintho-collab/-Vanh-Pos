@@ -176,6 +176,12 @@ abstract class AppLocalizations {
   /// **'Cashier'**
   String get commonCashier;
 
+  /// No description provided for @commonChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose'**
+  String get commonChoose;
+
   /// No description provided for @authLoginTagline.
   ///
   /// In en, this message translates to:
@@ -1334,6 +1340,12 @@ abstract class AppLocalizations {
   /// **'Customers'**
   String get navCustomers;
 
+  /// No description provided for @navAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointments'**
+  String get navAppointments;
+
   /// No description provided for @navServices.
   ///
   /// In en, this message translates to:
@@ -1926,6 +1938,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Custom'**
   String get dateRangeCustom;
+
+  /// No description provided for @apptBookTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Book appointment'**
+  String get apptBookTitle;
+
+  /// No description provided for @apptWalkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk-in'**
+  String get apptWalkIn;
+
+  /// No description provided for @apptCustomerOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer (optional)'**
+  String get apptCustomerOptional;
+
+  /// No description provided for @apptStaffLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff'**
+  String get apptStaffLabel;
+
+  /// No description provided for @apptServicesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Services'**
+  String get apptServicesLabel;
+
+  /// No description provided for @apptSelectAtLeastOneService.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one service'**
+  String get apptSelectAtLeastOneService;
+
+  /// No description provided for @apptNotesOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes (optional)'**
+  String get apptNotesOptionalLabel;
+
+  /// No description provided for @apptCalendarMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get apptCalendarMonth;
+
+  /// No description provided for @apptCalendarWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get apptCalendarWeek;
+
+  /// No description provided for @apptNoAppointmentsThisDay.
+  ///
+  /// In en, this message translates to:
+  /// **'No appointments this day'**
+  String get apptNoAppointmentsThisDay;
+
+  /// No description provided for @apptStatusScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get apptStatusScheduled;
+
+  /// No description provided for @apptStatusConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed'**
+  String get apptStatusConfirmed;
+
+  /// No description provided for @apptStatusCheckedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked in'**
+  String get apptStatusCheckedIn;
+
+  /// No description provided for @apptStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get apptStatusCompleted;
+
+  /// No description provided for @apptStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get apptStatusCancelled;
+
+  /// No description provided for @apptStatusNoShow.
+  ///
+  /// In en, this message translates to:
+  /// **'No-show'**
+  String get apptStatusNoShow;
+
+  /// No description provided for @apptCancelReasonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel appointment'**
+  String get apptCancelReasonTitle;
+
+  /// No description provided for @apptCancelReasonOptionalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get apptCancelReasonOptionalHint;
+
+  /// No description provided for @apptReschedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Reschedule'**
+  String get apptReschedule;
+
+  /// No description provided for @apptRescheduleConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm reschedule'**
+  String get apptRescheduleConfirm;
 }
 
 class _AppLocalizationsDelegate

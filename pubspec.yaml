@@ -48,6 +48,7 @@ dependencies:
   google_fonts: ^6.2.1
   data_table_2: ^2.5.16
   fl_chart: ^0.69.2
+  table_calendar: ^3.1.2
 
   # Utils
   intl: ^0.20.2

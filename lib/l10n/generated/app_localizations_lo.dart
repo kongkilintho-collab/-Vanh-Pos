@@ -48,6 +48,9 @@ class AppLocalizationsLo extends AppLocalizations {
   String get commonCashier => 'ພະນັກງານແຄຊເຊຍ';
 
   @override
+  String get commonChoose => 'ເລືອກ';
+
+  @override
   String get authLoginTagline => 'ເຂົ້າສູ່ລະບົບທຸລະກິດຂອງທ່ານ';
 
   @override
@@ -677,6 +680,9 @@ class AppLocalizationsLo extends AppLocalizations {
   String get navCustomers => 'ລູກຄ້າ';
 
   @override
+  String get navAppointments => 'ນັດໝາຍ';
+
+  @override
   String get navServices => 'ບໍລິການ';
 
   @override
@@ -995,4 +1001,64 @@ class AppLocalizationsLo extends AppLocalizations {
 
   @override
   String get dateRangeCustom => 'ກຳນົດເອງ';
+
+  @override
+  String get apptBookTitle => 'ນັດໝາຍໃໝ່';
+
+  @override
+  String get apptWalkIn => 'ລູກຄ້າຍ່າງເຂົ້າ';
+
+  @override
+  String get apptCustomerOptional => 'ລູກຄ້າ (ບໍ່ບັງຄັບ)';
+
+  @override
+  String get apptStaffLabel => 'ພະນັກງານ';
+
+  @override
+  String get apptServicesLabel => 'ບໍລິການ';
+
+  @override
+  String get apptSelectAtLeastOneService => 'ກະລຸນາເລືອກຢ່າງໜ້ອຍໜຶ່ງບໍລິການ';
+
+  @override
+  String get apptNotesOptionalLabel => 'ໝາຍເຫດ (ບໍ່ບັງຄັບ)';
+
+  @override
+  String get apptCalendarMonth => 'ເດືອນ';
+
+  @override
+  String get apptCalendarWeek => 'ອາທິດ';
+
+  @override
+  String get apptNoAppointmentsThisDay => 'ບໍ່ມີນັດໝາຍໃນມື້ນີ້';
+
+  @override
+  String get apptStatusScheduled => 'ກຳນົດແລ້ວ';
+
+  @override
+  String get apptStatusConfirmed => 'ຢືນຢັນແລ້ວ';
+
+  @override
+  String get apptStatusCheckedIn => 'ເຊັກອິນແລ້ວ';
+
+  @override
+  String get apptStatusCompleted => 'ສຳເລັດແລ້ວ';
+
+  @override
+  String get apptStatusCancelled => 'ຍົກເລີກແລ້ວ';
+
+  @override
+  String get apptStatusNoShow => 'ບໍ່ມາຕາມນັດ';
+
+  @override
+  String get apptCancelReasonTitle => 'ຍົກເລີກນັດໝາຍ';
+
+  @override
+  String get apptCancelReasonOptionalHint => 'ເຫດຜົນ (ບໍ່ບັງຄັບ)';
+
+  @override
+  String get apptReschedule => 'ປ່ຽນເວລານັດ';
+
+  @override
+  String get apptRescheduleConfirm => 'ຢືນຢັນການປ່ຽນເວລາ';
 }

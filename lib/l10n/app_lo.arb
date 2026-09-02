@@ -15,6 +15,7 @@
   "commonNotSpecified": "ບໍ່ໄດ້ລະບຸ",
   "commonNoPhoneOnFile": "ບໍ່ມີເບີໂທ",
   "commonCashier": "ພະນັກງານແຄຊເຊຍ",
+  "commonChoose": "ເລືອກ",
 
   "authLoginTagline": "ເຂົ້າສູ່ລະບົບທຸລະກິດຂອງທ່ານ",
   "authEmailLabel": "ອີເມວ",
@@ -236,6 +237,7 @@
   "navPos": "ຂາຍໜ້າຮ້ານ",
   "navSales": "ການຂາຍ",
   "navCustomers": "ລູກຄ້າ",
+  "navAppointments": "ນັດໝາຍ",
   "navServices": "ບໍລິການ",
   "navProducts": "ສິນຄ້າ",
   "navInventory": "ສາງສິນຄ້າ",
@@ -353,5 +355,26 @@
   "dateRangeToday": "ມື້ນີ້",
   "dateRangeThisWeek": "ອາທິດນີ້",
   "dateRangeThisMonth": "ເດືອນນີ້",
-  "dateRangeCustom": "ກຳນົດເອງ"
+  "dateRangeCustom": "ກຳນົດເອງ",
+
+  "apptBookTitle": "ນັດໝາຍໃໝ່",
+  "apptWalkIn": "ລູກຄ້າຍ່າງເຂົ້າ",
+  "apptCustomerOptional": "ລູກຄ້າ (ບໍ່ບັງຄັບ)",
+  "apptStaffLabel": "ພະນັກງານ",
+  "apptServicesLabel": "ບໍລິການ",
+  "apptSelectAtLeastOneService": "ກະລຸນາເລືອກຢ່າງໜ້ອຍໜຶ່ງບໍລິການ",
+  "apptNotesOptionalLabel": "ໝາຍເຫດ (ບໍ່ບັງຄັບ)",
+  "apptCalendarMonth": "ເດືອນ",
+  "apptCalendarWeek": "ອາທິດ",
+  "apptNoAppointmentsThisDay": "ບໍ່ມີນັດໝາຍໃນມື້ນີ້",
+  "apptStatusScheduled": "ກຳນົດແລ້ວ",
+  "apptStatusConfirmed": "ຢືນຢັນແລ້ວ",
+  "apptStatusCheckedIn": "ເຊັກອິນແລ້ວ",
+  "apptStatusCompleted": "ສຳເລັດແລ້ວ",
+  "apptStatusCancelled": "ຍົກເລີກແລ້ວ",
+  "apptStatusNoShow": "ບໍ່ມາຕາມນັດ",
+  "apptCancelReasonTitle": "ຍົກເລີກນັດໝາຍ",
+  "apptCancelReasonOptionalHint": "ເຫດຜົນ (ບໍ່ບັງຄັບ)",
+  "apptReschedule": "ປ່ຽນເວລານັດ",
+  "apptRescheduleConfirm": "ຢືນຢັນການປ່ຽນເວລາ"
 }

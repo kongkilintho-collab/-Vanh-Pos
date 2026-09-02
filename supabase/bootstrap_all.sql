@@ -3053,4 +3053,356 @@ grant execute on function complete_sale(
   uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
 ) to authenticated;
 
+-- ===== 0030_appointments_schema.sql =====
+-- Phase 1: Appointment / Calendar.
+--
+-- Following the pattern complete_sale/adjust_stock/set_member_role already
+-- established (and business_members after 0027, which dropped its direct
+-- UPDATE policy once its RPCs existed): validated, audited writes go
+-- through a SECURITY DEFINER RPC, never a raw client INSERT/UPDATE. So
+-- appointments/appointment_items get a SELECT-only RLS policy here; the
+-- RPCs in 0031_appointment_rpcs.sql are the only write path.
+--
+-- One appointment = one staff member, one time block (start_at/end_at),
+-- protected against double-booking by a GIST exclusion constraint -- this
+-- is enforced by Postgres itself, not application logic, so it holds even
+-- under concurrent bookings. An appointment can carry multiple services
+-- (appointment_items), each optionally attributed to a different staff
+-- member for commission purposes (mirrors sale_items.staff_id), but only
+-- the appointment's own staff_id/time range is conflict-checked -- keeping
+-- the concurrency-safety story to one exclusion constraint with one clear
+-- owner of the booked slot.
+
+create extension if not exists btree_gist;
+
+create type appointment_status as enum (
+  'SCHEDULED', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED', 'NO_SHOW'
+);
+
+create table appointments (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  branch_id uuid references branches(id) on delete set null,
+  customer_id uuid references customers(id) on delete set null,
+  staff_id uuid not null references profiles(id) on delete restrict,
+  start_at timestamptz not null,
+  end_at timestamptz not null check (end_at > start_at),
+  status appointment_status not null default 'SCHEDULED',
+  notes text,
+  cancel_reason text,
+  sale_id uuid references sales(id) on delete set null,
+  created_by uuid references profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint appointments_no_staff_overlap exclude using gist (
+    staff_id with =,
+    tstzrange(start_at, end_at) with &&
+  ) where (status in ('SCHEDULED', 'CONFIRMED', 'CHECKED_IN'))
+);
+
+create index appointments_business_id_idx on appointments(business_id, start_at);
+create index appointments_staff_id_idx on appointments(staff_id, start_at);
+create index appointments_customer_id_idx on appointments(customer_id);
+create index appointments_branch_id_idx on appointments(branch_id);
+create index appointments_status_idx on appointments(business_id, status);
+
+create trigger appointments_set_updated_at
+  before update on appointments
+  for each row execute function set_updated_at();
+
+create table appointment_items (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  appointment_id uuid not null references appointments(id) on delete cascade,
+  service_id uuid not null references services(id) on delete restrict,
+  staff_id uuid references profiles(id) on delete set null,
+  name_snapshot text not null,
+  duration_minutes integer not null check (duration_minutes > 0),
+  price_snapshot numeric(14,2) not null check (price_snapshot >= 0),
+  created_at timestamptz not null default now()
+);
+
+create index appointment_items_appointment_id_idx on appointment_items(appointment_id);
+create index appointment_items_business_id_idx on appointment_items(business_id);
+create index appointment_items_service_id_idx on appointment_items(service_id);
+
+alter table appointments enable row level security;
+alter table appointment_items enable row level security;
+
+-- SELECT only -- see header. Insert/update happen exclusively through
+-- book_appointment/set_appointment_status/reschedule_appointment.
+
+create policy appointments_select on appointments
+  for select using (is_member(business_id));
+
+create policy appointment_items_select on appointment_items
+  for select using (is_member(business_id));
+
+-- ===== 0031_appointment_rpcs.sql =====
+-- Phase 1: Appointment / Calendar -- write-path RPCs. See
+-- 0030_appointments_schema.sql for why appointments/appointment_items have
+-- no direct-write RLS policy: these three functions are the only way to
+-- create, reschedule, or transition an appointment, exactly like
+-- complete_sale/adjust_stock/set_member_role for their own tables.
+--
+-- All three re-derive the caller's role via has_role_at_least() themselves
+-- (never trust p_business_id alone), validate staff_id/customer_id/
+-- branch_id/service_id belong to p_business_id (the same style of check
+-- complete_sale uses for staff_id/customer_id/service_id/product_id), and
+-- rely on appointments_no_staff_overlap (the GIST exclusion constraint) to
+-- reject double-bookings -- caught here only to turn a raw
+-- "exclusion_violation" Postgres error into a readable message.
+
+create or replace function book_appointment(
+  p_business_id uuid,
+  p_branch_id uuid,
+  p_customer_id uuid,
+  p_staff_id uuid,
+  p_start_at timestamptz,
+  p_end_at timestamptz,
+  p_items jsonb,
+  p_notes text
+)
+returns appointments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appointment appointments;
+  v_item jsonb;
+  v_service_id uuid;
+  v_item_staff_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to book an appointment';
+  end if;
+
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'An appointment must have at least one service';
+  end if;
+
+  if not exists (
+    select 1 from business_members
+    where business_id = p_business_id and user_id = p_staff_id and active = true
+  ) then
+    raise exception 'Staff member is not an active member of this business';
+  end if;
+
+  if p_customer_id is not null and not exists (
+    select 1 from customers where id = p_customer_id and business_id = p_business_id
+  ) then
+    raise exception 'Customer not found in this business';
+  end if;
+
+  if p_branch_id is not null and not exists (
+    select 1 from branches where id = p_branch_id and business_id = p_business_id
+  ) then
+    raise exception 'Branch not found in this business';
+  end if;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_service_id := nullif(v_item->>'service_id', '')::uuid;
+    if v_service_id is null or not exists (
+      select 1 from services where id = v_service_id and business_id = p_business_id
+    ) then
+      raise exception 'Service not found in this business';
+    end if;
+
+    v_item_staff_id := nullif(v_item->>'staff_id', '')::uuid;
+    if v_item_staff_id is not null and not exists (
+      select 1 from business_members
+      where business_id = p_business_id and user_id = v_item_staff_id and active = true
+    ) then
+      raise exception 'Item staff member is not an active member of this business';
+    end if;
+  end loop;
+
+  begin
+    insert into appointments (
+      business_id, branch_id, customer_id, staff_id, start_at, end_at, notes, created_by
+    ) values (
+      p_business_id, p_branch_id, p_customer_id, p_staff_id, p_start_at, p_end_at, p_notes, auth.uid()
+    ) returning * into v_appointment;
+  exception
+    when exclusion_violation then
+      raise exception 'This staff member already has a booking that overlaps this time range';
+  end;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    insert into appointment_items (
+      business_id, appointment_id, service_id, staff_id, name_snapshot, duration_minutes, price_snapshot
+    ) values (
+      p_business_id, v_appointment.id,
+      nullif(v_item->>'service_id', '')::uuid,
+      nullif(v_item->>'staff_id', '')::uuid,
+      v_item->>'name_snapshot',
+      coalesce((v_item->>'duration_minutes')::int, 30),
+      coalesce((v_item->>'price_snapshot')::numeric, 0)
+    );
+  end loop;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'CREATE', 'appointment', v_appointment.id, to_jsonb(v_appointment));
+
+  return v_appointment;
+end;
+$$;
+
+revoke execute on function book_appointment(
+  uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
+) from public;
+revoke execute on function book_appointment(
+  uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
+) from anon;
+grant execute on function book_appointment(
+  uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
+) to authenticated;
+
+-- Status state machine:
+--   SCHEDULED  -> CONFIRMED, CANCELLED, NO_SHOW
+--   CONFIRMED  -> CHECKED_IN, CANCELLED, NO_SHOW
+--   CHECKED_IN -> COMPLETED, CANCELLED
+--   COMPLETED / CANCELLED / NO_SHOW -> terminal, no further transitions
+
+create or replace function set_appointment_status(
+  p_business_id uuid,
+  p_appointment_id uuid,
+  p_status appointment_status,
+  p_cancel_reason text
+)
+returns appointments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appointment appointments;
+  v_old_data jsonb;
+  v_allowed appointment_status[];
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to change appointment status';
+  end if;
+
+  select * into v_appointment from appointments
+    where id = p_appointment_id and business_id = p_business_id
+    for update;
+
+  if v_appointment.id is null then
+    raise exception 'Appointment not found in this business';
+  end if;
+
+  v_allowed := case v_appointment.status
+    when 'SCHEDULED' then array['CONFIRMED', 'CANCELLED', 'NO_SHOW']::appointment_status[]
+    when 'CONFIRMED' then array['CHECKED_IN', 'CANCELLED', 'NO_SHOW']::appointment_status[]
+    when 'CHECKED_IN' then array['COMPLETED', 'CANCELLED']::appointment_status[]
+    else array[]::appointment_status[]
+  end;
+
+  if not (p_status = any(v_allowed)) then
+    raise exception 'Cannot move an appointment from % to %', v_appointment.status, p_status;
+  end if;
+
+  v_old_data := to_jsonb(v_appointment);
+
+  update appointments set
+    status = p_status,
+    cancel_reason = case when p_status = 'CANCELLED' then p_cancel_reason else cancel_reason end
+  where id = p_appointment_id
+  returning * into v_appointment;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, old_data, new_data)
+  values (p_business_id, auth.uid(), 'UPDATE', 'appointment', v_appointment.id, v_old_data, to_jsonb(v_appointment));
+
+  return v_appointment;
+end;
+$$;
+
+revoke execute on function set_appointment_status(uuid, uuid, appointment_status, text) from public;
+revoke execute on function set_appointment_status(uuid, uuid, appointment_status, text) from anon;
+grant execute on function set_appointment_status(uuid, uuid, appointment_status, text) to authenticated;
+
+-- Reschedule: only while the appointment is still SCHEDULED/CONFIRMED --
+-- once a customer has checked in, moving the time no longer makes sense
+-- and should be a cancel + rebook instead.
+
+create or replace function reschedule_appointment(
+  p_business_id uuid,
+  p_appointment_id uuid,
+  p_staff_id uuid,
+  p_start_at timestamptz,
+  p_end_at timestamptz
+)
+returns appointments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appointment appointments;
+  v_old_data jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to reschedule an appointment';
+  end if;
+
+  select * into v_appointment from appointments
+    where id = p_appointment_id and business_id = p_business_id
+    for update;
+
+  if v_appointment.id is null then
+    raise exception 'Appointment not found in this business';
+  end if;
+
+  if v_appointment.status not in ('SCHEDULED', 'CONFIRMED') then
+    raise exception 'Only a scheduled or confirmed appointment can be rescheduled';
+  end if;
+
+  if not exists (
+    select 1 from business_members
+    where business_id = p_business_id and user_id = p_staff_id and active = true
+  ) then
+    raise exception 'Staff member is not an active member of this business';
+  end if;
+
+  v_old_data := to_jsonb(v_appointment);
+
+  begin
+    update appointments set
+      staff_id = p_staff_id,
+      start_at = p_start_at,
+      end_at = p_end_at
+    where id = p_appointment_id
+    returning * into v_appointment;
+  exception
+    when exclusion_violation then
+      raise exception 'This staff member already has a booking that overlaps this time range';
+  end;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, old_data, new_data)
+  values (p_business_id, auth.uid(), 'UPDATE', 'appointment', v_appointment.id, v_old_data, to_jsonb(v_appointment));
+
+  return v_appointment;
+end;
+$$;
+
+revoke execute on function reschedule_appointment(uuid, uuid, uuid, timestamptz, timestamptz) from public;
+revoke execute on function reschedule_appointment(uuid, uuid, uuid, timestamptz, timestamptz) from anon;
+grant execute on function reschedule_appointment(uuid, uuid, uuid, timestamptz, timestamptz) to authenticated;
+
 commit;

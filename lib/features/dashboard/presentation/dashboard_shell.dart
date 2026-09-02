@@ -7,6 +7,7 @@ import '../../../shared/models/business_role.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
+import '../../appointments/presentation/appointments_screen.dart';
 import '../../audit/presentation/audit_log_screen.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/business_context_provider.dart';
@@ -41,6 +42,7 @@ class _NavItem {
     'pos' => l10n.navPos,
     'sales' => l10n.navSales,
     'customers' => l10n.navCustomers,
+    'appointments' => l10n.navAppointments,
     'services' => l10n.navServices,
     'products' => l10n.navProducts,
     'inventory' => l10n.navInventory,
@@ -71,6 +73,12 @@ const _navItems = [
   _NavItem(
     icon: Icons.groups_outlined,
     id: 'customers',
+    minRole: BusinessRole.cashier,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.calendar_month_outlined,
+    id: 'appointments',
     minRole: BusinessRole.cashier,
     implemented: true,
   ),
@@ -200,6 +208,8 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const ProductsScreen();
       case 'customers':
         return const CustomersScreen();
+      case 'appointments':
+        return const AppointmentsScreen();
       case 'staff':
         return const StaffScreen();
       case 'commissions':
