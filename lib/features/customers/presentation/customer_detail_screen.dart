@@ -8,12 +8,14 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/error_banner.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../l10n/l10n_extensions.dart';
+import '../../../shared/models/consultation_record.dart';
 import '../../../shared/models/customer_package_status.dart';
 import '../../../shared/models/treatment_record.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../packages/presentation/customer_package_providers.dart';
+import 'consultation_form_sheet.dart';
 import 'customer_form_sheet.dart';
 import 'customer_providers.dart';
 import 'treatment_form_sheet.dart';
@@ -110,6 +112,18 @@ class CustomerDetailScreen extends ConsumerWidget {
                   customerId: customerId,
                   businessId: customer.businessId,
                 ),
+                const SizedBox(height: AppSpacing.xxl),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(context.l10n.consultationHistoryTitle, style: AppTextStyles.title),
+                    TextButton(
+                      onPressed: () => showConsultationFormSheet(context, customerId: customerId),
+                      child: Text(context.l10n.consultationAddAction),
+                    ),
+                  ],
+                ),
+                _ConsultationSection(customerId: customerId),
                 const SizedBox(height: AppSpacing.xxl),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -540,6 +554,102 @@ class _TreatmentCard extends StatelessWidget {
                 '${context.l10n.treatmentRowFollowUp}: ${DateFormat('MMM d, y').format(treatment.followUpDate!)}',
                 style: AppTextStyles.caption.copyWith(color: AppColors.muted),
               ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Phase 5 (Consultation / Customer Consultation Records) -- follows the
+/// exact same section shape as _TreatmentHistorySection above: a simple
+/// ConsumerWidget reading its own FutureProvider, no shared generic
+/// abstraction.
+class _ConsultationSection extends ConsumerWidget {
+  final String customerId;
+
+  const _ConsultationSection({required this.customerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final consultationsAsync = ref.watch(customerConsultationsProvider(customerId));
+
+    return consultationsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
+      data: (consultations) {
+        if (consultations.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: Text(
+              context.l10n.consultationNoneYet,
+              style: AppTextStyles.body.copyWith(color: AppColors.muted),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.md),
+          child: Column(
+            children: [
+              for (final consultation in consultations) _ConsultationCard(consultation: consultation),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ConsultationCard extends StatelessWidget {
+  final ConsultationRecord consultation;
+
+  const _ConsultationCard({required this.consultation});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(consultation.staffNameSnapshot, style: AppTextStyles.bodyStrong),
+                ),
+                Text(
+                  DateFormat('MMM d, y').format(consultation.consultationDate.toLocal()),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                ),
+              ],
+            ),
+            if (consultation.recommendedServiceNameSnapshot != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${context.l10n.consultationRowRecommended}: ${consultation.recommendedServiceNameSnapshot}',
+                style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+              ),
+            ],
+            if (consultation.customerConcerns != null && consultation.customerConcerns!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '${context.l10n.consultationRowConcerns}: ${consultation.customerConcerns}',
+                style: AppTextStyles.body,
+              ),
+            ],
+            if (consultation.assessment != null && consultation.assessment!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${context.l10n.consultationRowAssessment}: ${consultation.assessment}',
+                style: AppTextStyles.body,
+              ),
+            ],
+            if (consultation.consultationNotes != null && consultation.consultationNotes!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(consultation.consultationNotes!, style: AppTextStyles.body),
             ],
           ],
         ),

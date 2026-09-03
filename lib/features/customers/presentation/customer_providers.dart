@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/consultation_record.dart';
 import '../../../shared/models/customer.dart';
 import '../../../shared/models/treatment_record.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../auth/presentation/business_context_provider.dart';
+import '../data/consultation_repository.dart';
 import '../data/customer_repository.dart';
 import '../data/treatment_history_repository.dart';
 
@@ -24,6 +26,21 @@ final customerTreatmentHistoryProvider =
   final membership = ref.watch(currentMembershipProvider);
   if (membership == null) return const [];
   return ref.watch(treatmentHistoryRepositoryProvider).listForCustomer(membership.business.id, customerId);
+});
+
+final consultationRepositoryProvider = Provider<ConsultationRepository>((ref) {
+  return ConsultationRepository(ref.watch(supabaseClientProvider));
+});
+
+/// Phase 5 (Consultation / Customer Consultation Records). Tenant-safety
+/// is enforced by RLS (is_member(business_id)) on the consultations table
+/// itself -- this provider's own business_id scoping is a query
+/// optimization, not the security boundary.
+final customerConsultationsProvider =
+    FutureProvider.autoDispose.family<List<ConsultationRecord>, String>((ref, customerId) async {
+  final membership = ref.watch(currentMembershipProvider);
+  if (membership == null) return const [];
+  return ref.watch(consultationRepositoryProvider).listForCustomer(membership.business.id, customerId);
 });
 
 final customerSearchQueryProvider = StateProvider.autoDispose<String>((ref) => '');

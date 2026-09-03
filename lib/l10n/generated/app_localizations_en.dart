@@ -418,6 +418,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get treatmentRowFollowUp => 'Follow-up';
 
   @override
+  String get consultationHistoryTitle => 'Consultations';
+
+  @override
+  String get consultationNoneYet => 'No consultations recorded yet.';
+
+  @override
+  String get consultationAddAction => 'Add consultation';
+
+  @override
+  String get consultationFormTitle => 'Add consultation';
+
+  @override
+  String get consultationStaffLabel => 'Staff';
+
+  @override
+  String get consultationDateLabel => 'Consultation date';
+
+  @override
+  String get consultationRecommendedServiceLabel =>
+      'Recommended service (optional)';
+
+  @override
+  String get consultationRecommendedServiceNone => 'None';
+
+  @override
+  String get consultationNotesLabel => 'Consultation notes';
+
+  @override
+  String get consultationConcernsLabel => 'Customer concerns';
+
+  @override
+  String get consultationObservationsLabel => 'Observations';
+
+  @override
+  String get consultationConsiderationsLabel => 'Considerations';
+
+  @override
+  String get consultationAssessmentLabel => 'Assessment';
+
+  @override
+  String get consultationRecommendationLabel => 'Recommendation notes';
+
+  @override
+  String get consultationSaveAction => 'Save consultation';
+
+  @override
+  String get consultationStaffRequired => 'Select a staff member';
+
+  @override
+  String get consultationRowRecommended => 'Recommended';
+
+  @override
+  String get consultationRowConcerns => 'Concerns';
+
+  @override
+  String get consultationRowAssessment => 'Assessment';
+
+  @override
   String get customersNameLabel => 'Name';
 
   @override

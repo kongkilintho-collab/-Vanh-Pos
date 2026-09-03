@@ -890,6 +890,120 @@ abstract class AppLocalizations {
   /// **'Follow-up'**
   String get treatmentRowFollowUp;
 
+  /// No description provided for @consultationHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Consultations'**
+  String get consultationHistoryTitle;
+
+  /// No description provided for @consultationNoneYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No consultations recorded yet.'**
+  String get consultationNoneYet;
+
+  /// No description provided for @consultationAddAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add consultation'**
+  String get consultationAddAction;
+
+  /// No description provided for @consultationFormTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add consultation'**
+  String get consultationFormTitle;
+
+  /// No description provided for @consultationStaffLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff'**
+  String get consultationStaffLabel;
+
+  /// No description provided for @consultationDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Consultation date'**
+  String get consultationDateLabel;
+
+  /// No description provided for @consultationRecommendedServiceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended service (optional)'**
+  String get consultationRecommendedServiceLabel;
+
+  /// No description provided for @consultationRecommendedServiceNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get consultationRecommendedServiceNone;
+
+  /// No description provided for @consultationNotesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Consultation notes'**
+  String get consultationNotesLabel;
+
+  /// No description provided for @consultationConcernsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer concerns'**
+  String get consultationConcernsLabel;
+
+  /// No description provided for @consultationObservationsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Observations'**
+  String get consultationObservationsLabel;
+
+  /// No description provided for @consultationConsiderationsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Considerations'**
+  String get consultationConsiderationsLabel;
+
+  /// No description provided for @consultationAssessmentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assessment'**
+  String get consultationAssessmentLabel;
+
+  /// No description provided for @consultationRecommendationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendation notes'**
+  String get consultationRecommendationLabel;
+
+  /// No description provided for @consultationSaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save consultation'**
+  String get consultationSaveAction;
+
+  /// No description provided for @consultationStaffRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a staff member'**
+  String get consultationStaffRequired;
+
+  /// No description provided for @consultationRowRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get consultationRowRecommended;
+
+  /// No description provided for @consultationRowConcerns.
+  ///
+  /// In en, this message translates to:
+  /// **'Concerns'**
+  String get consultationRowConcerns;
+
+  /// No description provided for @consultationRowAssessment.
+  ///
+  /// In en, this message translates to:
+  /// **'Assessment'**
+  String get consultationRowAssessment;
+
   /// No description provided for @customersNameLabel.
   ///
   /// In en, this message translates to:

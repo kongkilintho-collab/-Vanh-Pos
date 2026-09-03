@@ -418,6 +418,64 @@ class AppLocalizationsLo extends AppLocalizations {
   String get treatmentRowFollowUp => 'ຕິດຕາມຜົນ';
 
   @override
+  String get consultationHistoryTitle => 'ການປຶກສາ';
+
+  @override
+  String get consultationNoneYet => 'ຍັງບໍ່ມີການປຶກສາທີ່ບັນທຶກໄວ້.';
+
+  @override
+  String get consultationAddAction => 'ເພີ່ມການປຶກສາ';
+
+  @override
+  String get consultationFormTitle => 'ເພີ່ມການປຶກສາ';
+
+  @override
+  String get consultationStaffLabel => 'ພະນັກງານ';
+
+  @override
+  String get consultationDateLabel => 'ວັນທີປຶກສາ';
+
+  @override
+  String get consultationRecommendedServiceLabel =>
+      'ບໍລິການທີ່ແນະນຳ (ບໍ່ບັງຄັບ)';
+
+  @override
+  String get consultationRecommendedServiceNone => 'ບໍ່ມີ';
+
+  @override
+  String get consultationNotesLabel => 'ບັນທຶກການປຶກສາ';
+
+  @override
+  String get consultationConcernsLabel => 'ຄວາມກັງວົນຂອງລູກຄ້າ';
+
+  @override
+  String get consultationObservationsLabel => 'ການສັງເກດ';
+
+  @override
+  String get consultationConsiderationsLabel => 'ຂໍ້ພິຈາລະນາ';
+
+  @override
+  String get consultationAssessmentLabel => 'ການປະເມີນ';
+
+  @override
+  String get consultationRecommendationLabel => 'ຄຳແນະນຳ';
+
+  @override
+  String get consultationSaveAction => 'ບັນທຶກການປຶກສາ';
+
+  @override
+  String get consultationStaffRequired => 'ກະລຸນາເລືອກພະນັກງານ';
+
+  @override
+  String get consultationRowRecommended => 'ແນະນຳ';
+
+  @override
+  String get consultationRowConcerns => 'ຄວາມກັງວົນ';
+
+  @override
+  String get consultationRowAssessment => 'ການປະເມີນ';
+
+  @override
   String get customersNameLabel => 'ຊື່';
 
   @override
