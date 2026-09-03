@@ -115,6 +115,7 @@ class _StaffTile extends ConsumerWidget {
         trailing: _canEdit
             ? IconButton(
                 icon: const Icon(Icons.more_vert, size: 18),
+                tooltip: context.l10n.staffManageMemberTooltip,
                 onPressed: () => _showManageSheet(context, ref),
               )
             : null,

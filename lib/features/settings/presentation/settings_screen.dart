@@ -266,8 +266,8 @@ class _LanguageSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeControllerProvider);
-    return SizedBox(
-      width: 260,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
       child: DropdownButtonFormField<Locale>(
         initialValue: locale,
         decoration: const InputDecoration(isDense: true),

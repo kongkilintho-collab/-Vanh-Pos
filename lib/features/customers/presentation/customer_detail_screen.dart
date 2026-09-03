@@ -34,6 +34,7 @@ class CustomerDetailScreen extends ConsumerWidget {
           if (customerAsync.valueOrNull != null)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
+              tooltip: context.l10n.customersEditTitle,
               onPressed: () => showCustomerFormSheet(
                 context,
                 existing: customerAsync.valueOrNull,

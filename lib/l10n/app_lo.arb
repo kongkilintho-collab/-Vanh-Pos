@@ -358,6 +358,12 @@
   "dateRangeThisMonth": "ເດືອນນີ້",
   "dateRangeCustom": "ກຳນົດເອງ",
 
+  "authShowPassword": "ສະແດງລະຫັດຜ່ານ",
+  "authHidePassword": "ເຊື່ອງລະຫັດຜ່ານ",
+  "posQuantityIncrease": "ເພີ່ມຈຳນວນ",
+  "posQuantityDecrease": "ຫຼຸດຈຳນວນ",
+  "staffManageMemberTooltip": "ຈັດການພະນັກງານ",
+
   "apptBookTitle": "ນັດໝາຍໃໝ່",
   "apptWalkIn": "ລູກຄ້າຍ່າງເຂົ້າ",
   "apptCustomerOptional": "ລູກຄ້າ (ບໍ່ບັງຄັບ)",

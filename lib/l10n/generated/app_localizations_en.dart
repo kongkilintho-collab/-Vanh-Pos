@@ -1007,6 +1007,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dateRangeCustom => 'Custom';
 
   @override
+  String get authShowPassword => 'Show password';
+
+  @override
+  String get authHidePassword => 'Hide password';
+
+  @override
+  String get posQuantityIncrease => 'Increase quantity';
+
+  @override
+  String get posQuantityDecrease => 'Decrease quantity';
+
+  @override
+  String get staffManageMemberTooltip => 'Manage staff member';
+
+  @override
   String get apptBookTitle => 'Book appointment';
 
   @override

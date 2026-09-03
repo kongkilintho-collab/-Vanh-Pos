@@ -358,6 +358,12 @@
   "dateRangeThisMonth": "This month",
   "dateRangeCustom": "Custom",
 
+  "authShowPassword": "Show password",
+  "authHidePassword": "Hide password",
+  "posQuantityIncrease": "Increase quantity",
+  "posQuantityDecrease": "Decrease quantity",
+  "staffManageMemberTooltip": "Manage staff member",
+
   "apptBookTitle": "Book appointment",
   "apptWalkIn": "Walk-in",
   "apptCustomerOptional": "Customer (optional)",

@@ -1006,6 +1006,21 @@ class AppLocalizationsLo extends AppLocalizations {
   String get dateRangeCustom => 'ກຳນົດເອງ';
 
   @override
+  String get authShowPassword => 'ສະແດງລະຫັດຜ່ານ';
+
+  @override
+  String get authHidePassword => 'ເຊື່ອງລະຫັດຜ່ານ';
+
+  @override
+  String get posQuantityIncrease => 'ເພີ່ມຈຳນວນ';
+
+  @override
+  String get posQuantityDecrease => 'ຫຼຸດຈຳນວນ';
+
+  @override
+  String get staffManageMemberTooltip => 'ຈັດການພະນັກງານ';
+
+  @override
   String get apptBookTitle => 'ນັດໝາຍໃໝ່';
 
   @override

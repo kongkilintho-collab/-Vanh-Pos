@@ -1945,6 +1945,36 @@ abstract class AppLocalizations {
   /// **'Custom'**
   String get dateRangeCustom;
 
+  /// No description provided for @authShowPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get authShowPassword;
+
+  /// No description provided for @authHidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get authHidePassword;
+
+  /// No description provided for @posQuantityIncrease.
+  ///
+  /// In en, this message translates to:
+  /// **'Increase quantity'**
+  String get posQuantityIncrease;
+
+  /// No description provided for @posQuantityDecrease.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrease quantity'**
+  String get posQuantityDecrease;
+
+  /// No description provided for @staffManageMemberTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage staff member'**
+  String get staffManageMemberTooltip;
+
   /// No description provided for @apptBookTitle.
   ///
   /// In en, this message translates to:
