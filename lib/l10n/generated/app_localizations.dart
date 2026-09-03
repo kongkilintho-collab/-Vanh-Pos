@@ -782,6 +782,114 @@ abstract class AppLocalizations {
   /// **'Add a note...'**
   String get customersAddNoteHint;
 
+  /// No description provided for @treatmentHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Treatment history'**
+  String get treatmentHistoryTitle;
+
+  /// No description provided for @treatmentNoneYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No treatments recorded yet.'**
+  String get treatmentNoneYet;
+
+  /// No description provided for @treatmentAddAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add treatment'**
+  String get treatmentAddAction;
+
+  /// No description provided for @treatmentFormTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add treatment'**
+  String get treatmentFormTitle;
+
+  /// No description provided for @treatmentServiceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get treatmentServiceLabel;
+
+  /// No description provided for @treatmentStaffLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff'**
+  String get treatmentStaffLabel;
+
+  /// No description provided for @treatmentDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Treatment date'**
+  String get treatmentDateLabel;
+
+  /// No description provided for @treatmentNotesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get treatmentNotesLabel;
+
+  /// No description provided for @treatmentResultLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get treatmentResultLabel;
+
+  /// No description provided for @treatmentFeedbackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer feedback'**
+  String get treatmentFeedbackLabel;
+
+  /// No description provided for @treatmentBeforeAfterLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Before/After reference (URL)'**
+  String get treatmentBeforeAfterLabel;
+
+  /// No description provided for @treatmentFollowUpLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up date'**
+  String get treatmentFollowUpLabel;
+
+  /// No description provided for @treatmentSaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save treatment'**
+  String get treatmentSaveAction;
+
+  /// No description provided for @treatmentServiceRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a service'**
+  String get treatmentServiceRequired;
+
+  /// No description provided for @treatmentStaffRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a staff member'**
+  String get treatmentStaffRequired;
+
+  /// No description provided for @treatmentRowResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get treatmentRowResult;
+
+  /// No description provided for @treatmentRowFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get treatmentRowFeedback;
+
+  /// No description provided for @treatmentRowFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up'**
+  String get treatmentRowFollowUp;
+
   /// No description provided for @customersNameLabel.
   ///
   /// In en, this message translates to:

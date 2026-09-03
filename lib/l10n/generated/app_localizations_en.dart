@@ -364,6 +364,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customersAddNoteHint => 'Add a note...';
 
   @override
+  String get treatmentHistoryTitle => 'Treatment history';
+
+  @override
+  String get treatmentNoneYet => 'No treatments recorded yet.';
+
+  @override
+  String get treatmentAddAction => 'Add treatment';
+
+  @override
+  String get treatmentFormTitle => 'Add treatment';
+
+  @override
+  String get treatmentServiceLabel => 'Service';
+
+  @override
+  String get treatmentStaffLabel => 'Staff';
+
+  @override
+  String get treatmentDateLabel => 'Treatment date';
+
+  @override
+  String get treatmentNotesLabel => 'Notes';
+
+  @override
+  String get treatmentResultLabel => 'Result';
+
+  @override
+  String get treatmentFeedbackLabel => 'Customer feedback';
+
+  @override
+  String get treatmentBeforeAfterLabel => 'Before/After reference (URL)';
+
+  @override
+  String get treatmentFollowUpLabel => 'Follow-up date';
+
+  @override
+  String get treatmentSaveAction => 'Save treatment';
+
+  @override
+  String get treatmentServiceRequired => 'Select a service';
+
+  @override
+  String get treatmentStaffRequired => 'Select a staff member';
+
+  @override
+  String get treatmentRowResult => 'Result';
+
+  @override
+  String get treatmentRowFeedback => 'Feedback';
+
+  @override
+  String get treatmentRowFollowUp => 'Follow-up';
+
+  @override
   String get customersNameLabel => 'Name';
 
   @override

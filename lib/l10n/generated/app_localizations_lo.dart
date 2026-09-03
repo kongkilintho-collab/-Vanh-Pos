@@ -364,6 +364,60 @@ class AppLocalizationsLo extends AppLocalizations {
   String get customersAddNoteHint => 'ເພີ່ມບັນທຶກ...';
 
   @override
+  String get treatmentHistoryTitle => 'ປະຫວັດການປິ່ນປົວ';
+
+  @override
+  String get treatmentNoneYet => 'ຍັງບໍ່ມີການບັນທຶກການປິ່ນປົວ.';
+
+  @override
+  String get treatmentAddAction => 'ເພີ່ມການປິ່ນປົວ';
+
+  @override
+  String get treatmentFormTitle => 'ເພີ່ມການປິ່ນປົວ';
+
+  @override
+  String get treatmentServiceLabel => 'ບໍລິການ';
+
+  @override
+  String get treatmentStaffLabel => 'ພະນັກງານ';
+
+  @override
+  String get treatmentDateLabel => 'ວັນທີປິ່ນປົວ';
+
+  @override
+  String get treatmentNotesLabel => 'ບັນທຶກ';
+
+  @override
+  String get treatmentResultLabel => 'ຜົນລັບ';
+
+  @override
+  String get treatmentFeedbackLabel => 'ຄຳຄິດເຫັນລູກຄ້າ';
+
+  @override
+  String get treatmentBeforeAfterLabel => 'ຮູບອ້າງອີງກ່ອນ/ຫຼັງ (URL)';
+
+  @override
+  String get treatmentFollowUpLabel => 'ວັນທີຕິດຕາມຜົນ';
+
+  @override
+  String get treatmentSaveAction => 'ບັນທຶກການປິ່ນປົວ';
+
+  @override
+  String get treatmentServiceRequired => 'ກະລຸນາເລືອກບໍລິການ';
+
+  @override
+  String get treatmentStaffRequired => 'ກະລຸນາເລືອກພະນັກງານ';
+
+  @override
+  String get treatmentRowResult => 'ຜົນລັບ';
+
+  @override
+  String get treatmentRowFeedback => 'ຄຳຄິດເຫັນ';
+
+  @override
+  String get treatmentRowFollowUp => 'ຕິດຕາມຜົນ';
+
+  @override
   String get customersNameLabel => 'ຊື່';
 
   @override

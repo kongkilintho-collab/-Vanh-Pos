@@ -9,12 +9,14 @@ import '../../../core/widgets/error_banner.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../l10n/l10n_extensions.dart';
 import '../../../shared/models/customer_package_status.dart';
+import '../../../shared/models/treatment_record.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../packages/presentation/customer_package_providers.dart';
 import 'customer_form_sheet.dart';
 import 'customer_providers.dart';
+import 'treatment_form_sheet.dart';
 
 class CustomerDetailScreen extends ConsumerWidget {
   final String customerId;
@@ -108,6 +110,18 @@ class CustomerDetailScreen extends ConsumerWidget {
                   customerId: customerId,
                   businessId: customer.businessId,
                 ),
+                const SizedBox(height: AppSpacing.xxl),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(context.l10n.treatmentHistoryTitle, style: AppTextStyles.title),
+                    TextButton(
+                      onPressed: () => showTreatmentFormSheet(context, customerId: customerId),
+                      child: Text(context.l10n.treatmentAddAction),
+                    ),
+                  ],
+                ),
+                _TreatmentHistorySection(customerId: customerId),
               ],
             ),
           );
@@ -424,6 +438,112 @@ class _NotesSectionState extends ConsumerState<_NotesSection> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Phase 4 (Customer Treatment History) -- follows the exact same
+/// section shape as _SalesHistory/_MembershipsSection/_NotesSection above:
+/// a simple ConsumerWidget reading its own FutureProvider, no shared
+/// generic "timeline" abstraction (none existed to reuse, and three
+/// near-identical sections don't justify inventing one).
+class _TreatmentHistorySection extends ConsumerWidget {
+  final String customerId;
+
+  const _TreatmentHistorySection({required this.customerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final treatmentsAsync = ref.watch(customerTreatmentHistoryProvider(customerId));
+
+    return treatmentsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
+      data: (treatments) {
+        if (treatments.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: Text(
+              context.l10n.treatmentNoneYet,
+              style: AppTextStyles.body.copyWith(color: AppColors.muted),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.md),
+          child: Column(
+            children: [
+              for (final treatment in treatments) _TreatmentCard(treatment: treatment),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TreatmentCard extends StatelessWidget {
+  final TreatmentRecord treatment;
+
+  const _TreatmentCard({required this.treatment});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(treatment.serviceNameSnapshot, style: AppTextStyles.bodyStrong),
+                ),
+                Text(
+                  DateFormat('MMM d, y').format(treatment.treatmentDate.toLocal()),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              treatment.staffNameSnapshot,
+              style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+            ),
+            if (treatment.notes != null && treatment.notes!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(treatment.notes!, style: AppTextStyles.body),
+            ],
+            if (treatment.result != null && treatment.result!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${context.l10n.treatmentRowResult}: ${treatment.result}',
+                style: AppTextStyles.body,
+              ),
+            ],
+            if (treatment.customerFeedback != null && treatment.customerFeedback!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${context.l10n.treatmentRowFeedback}: ${treatment.customerFeedback}',
+                style: AppTextStyles.body,
+              ),
+            ],
+            if (treatment.beforeAfterReference != null && treatment.beforeAfterReference!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(treatment.beforeAfterReference!, style: AppTextStyles.body),
+            ],
+            if (treatment.followUpDate != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${context.l10n.treatmentRowFollowUp}: ${DateFormat('MMM d, y').format(treatment.followUpDate!)}',
+                style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
