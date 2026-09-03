@@ -500,6 +500,60 @@ abstract class AppLocalizations {
   /// **'Payment amount cannot be less than the sale total.'**
   String get posPaymentInsufficient;
 
+  /// No description provided for @posAcceptDepositAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept deposit'**
+  String get posAcceptDepositAction;
+
+  /// No description provided for @posDepositTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept deposit'**
+  String get posDepositTitle;
+
+  /// No description provided for @posDepositAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Initial payment'**
+  String get posDepositAmountLabel;
+
+  /// No description provided for @posDepositAmountRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a deposit amount'**
+  String get posDepositAmountRequired;
+
+  /// No description provided for @posDepositRemainingBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining balance'**
+  String get posDepositRemainingBalance;
+
+  /// No description provided for @posDepositConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm deposit'**
+  String get posDepositConfirmAction;
+
+  /// No description provided for @posDepositResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deposit recorded'**
+  String get posDepositResultTitle;
+
+  /// No description provided for @posDepositResultPaymentStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment status'**
+  String get posDepositResultPaymentStatus;
+
+  /// No description provided for @posDepositDoneAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get posDepositDoneAction;
+
   /// No description provided for @paymentMethodCash.
   ///
   /// In en, this message translates to:
@@ -601,6 +655,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Paid'**
   String get salesRowPaid;
+
+  /// No description provided for @salesStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get salesStatusPending;
+
+  /// No description provided for @salesStatusPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Partially paid'**
+  String get salesStatusPartial;
+
+  /// No description provided for @salesRowOutstanding.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding balance'**
+  String get salesRowOutstanding;
+
+  /// No description provided for @salesPaymentHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment history'**
+  String get salesPaymentHistoryTitle;
+
+  /// No description provided for @salesNoPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'No payments recorded yet.'**
+  String get salesNoPayments;
+
+  /// No description provided for @salesSettleBalanceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Settle balance'**
+  String get salesSettleBalanceAction;
+
+  /// No description provided for @salesSettleBalanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settle outstanding balance'**
+  String get salesSettleBalanceTitle;
+
+  /// No description provided for @salesSettleAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment amount'**
+  String get salesSettleAmountLabel;
+
+  /// No description provided for @salesSettleReferenceOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference (optional)'**
+  String get salesSettleReferenceOptionalLabel;
+
+  /// No description provided for @salesSettleSubmitAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Record payment'**
+  String get salesSettleSubmitAction;
+
+  /// No description provided for @salesSettleAmountExceedsBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount cannot exceed the outstanding balance'**
+  String get salesSettleAmountExceedsBalance;
+
+  /// No description provided for @salesSettleSuccessSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment recorded.'**
+  String get salesSettleSuccessSnackbar;
 
   /// No description provided for @customersFallbackTitle.
   ///

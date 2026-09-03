@@ -221,6 +221,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'Payment amount cannot be less than the sale total.';
 
   @override
+  String get posAcceptDepositAction => 'Accept deposit';
+
+  @override
+  String get posDepositTitle => 'Accept deposit';
+
+  @override
+  String get posDepositAmountLabel => 'Initial payment';
+
+  @override
+  String get posDepositAmountRequired => 'Enter a deposit amount';
+
+  @override
+  String get posDepositRemainingBalance => 'Remaining balance';
+
+  @override
+  String get posDepositConfirmAction => 'Confirm deposit';
+
+  @override
+  String get posDepositResultTitle => 'Deposit recorded';
+
+  @override
+  String get posDepositResultPaymentStatus => 'Payment status';
+
+  @override
+  String get posDepositDoneAction => 'Done';
+
+  @override
   String get paymentMethodCash => 'Cash';
 
   @override
@@ -271,6 +298,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salesRowPaid => 'Paid';
+
+  @override
+  String get salesStatusPending => 'Pending';
+
+  @override
+  String get salesStatusPartial => 'Partially paid';
+
+  @override
+  String get salesRowOutstanding => 'Outstanding balance';
+
+  @override
+  String get salesPaymentHistoryTitle => 'Payment history';
+
+  @override
+  String get salesNoPayments => 'No payments recorded yet.';
+
+  @override
+  String get salesSettleBalanceAction => 'Settle balance';
+
+  @override
+  String get salesSettleBalanceTitle => 'Settle outstanding balance';
+
+  @override
+  String get salesSettleAmountLabel => 'Payment amount';
+
+  @override
+  String get salesSettleReferenceOptionalLabel => 'Reference (optional)';
+
+  @override
+  String get salesSettleSubmitAction => 'Record payment';
+
+  @override
+  String get salesSettleAmountExceedsBalance =>
+      'Amount cannot exceed the outstanding balance';
+
+  @override
+  String get salesSettleSuccessSnackbar => 'Payment recorded.';
 
   @override
   String get customersFallbackTitle => 'Customer';

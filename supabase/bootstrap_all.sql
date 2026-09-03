@@ -4559,3 +4559,645 @@ grant execute on function book_appointment(
   uuid, uuid, uuid, uuid, timestamptz, timestamptz, jsonb, text
 ) to authenticated;
 commit;
+
+begin;
+-- Phase 3 (Deposit / Outstanding Balance): adds the PARTIAL value to
+-- payment_status_enum, used by both sales.payment_status (a sale that has
+-- received some but not all of its total) and, transitively, nowhere else
+-- (payments.status for an individual payment row is always COMPLETED or
+-- REFUNDED -- an individual payment transaction is never itself "partial",
+-- only the sale's aggregate settlement state is).
+--
+-- Standalone file/transaction, following the exact precedent established by
+-- 0034_sale_item_kind_package_value.sql: Postgres cannot use a newly added
+-- enum value inside the same transaction that added it, so this migration
+-- does nothing else. The functions that reference 'PARTIAL' (complete_sale,
+-- record_sale_payment) are added in later, separate migrations.
+alter type payment_status_enum add value 'PARTIAL';
+commit;
+
+begin;
+-- Phase 3 (Deposit / Outstanding Balance): complete_sale gains one new,
+-- explicit, opt-in parameter -- p_allow_partial_payment boolean default
+-- false. Every existing caller (the POS checkout screen, via
+-- PosRepository.completeSale) sends a JSON object without this key, so
+-- PostgREST applies the default (false) and the existing full-payment-only
+-- behavior is completely unchanged for the normal checkout path -- it is
+-- structurally impossible to activate the new behavior by accident, since
+-- doing so requires a deliberate Flutter code change to start sending
+-- p_allow_partial_payment: true.
+--
+-- Because this adds a parameter (changing the function's argument-type
+-- signature, not just its body), a plain CREATE OR REPLACE would create a
+-- second overload rather than replacing the existing one -- so the old
+-- 9-argument signature is dropped first.
+--
+-- Two behavioral changes inside the function body, both gated on the new
+-- parameter:
+--   1) The existing "p_paid_amount < v_total" rejection now only fires
+--      when p_allow_partial_payment is not true (zero payment is still
+--      always rejected, in both modes -- a deposit must be > 0).
+--   2) v_payment_status is now COMPLETED or PARTIAL depending on whether
+--      p_paid_amount >= v_total, instead of being hardcoded to COMPLETED.
+--      This is the correct resolution of the F7-2 concern the hardcoded
+--      value was originally papering over ("a sale with $0 paid was fully
+--      processed with no distinguishing marker") -- now there is a real,
+--      queryable distinguishing marker.
+--   3) v_change is now `greatest(p_paid_amount - v_total, 0)` instead of
+--      the bare subtraction -- required for correctness once p_paid_amount
+--      can be less than v_total, since sales.change_amount has a
+--      `check (change_amount >= 0)` constraint that the bare subtraction
+--      would violate for any partial payment.
+--
+-- Every other line (auth guard, role check, idempotency, customer
+-- validation, the two-pass authoritative price resolution from F7-1, stock
+-- deduction, commission calculation, the payments insert itself -- which
+-- stays hardcoded to 'COMPLETED', since an individual payment transaction
+-- that itself succeeded is not "partial", only the sale's aggregate state
+-- is -- customer stats update, audit log) is verbatim from
+-- 0024_complete_sale_price_and_payment_integrity.sql.
+drop function if exists complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text
+);
+
+create or replace function complete_sale(
+  p_business_id uuid,
+  p_branch_id uuid,
+  p_customer_id uuid,
+  p_items jsonb,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_payment_method payment_method_enum,
+  p_paid_amount numeric,
+  p_idempotency_key text,
+  p_allow_partial_payment boolean default false
+)
+returns sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale sales;
+  v_existing sales;
+  v_item jsonb;
+  v_resolved_items jsonb := '[]'::jsonb;
+  v_subtotal numeric(14,2) := 0;
+  v_total numeric(14,2);
+  v_change numeric(14,2);
+  v_payment_status payment_status_enum;
+  v_sale_item_id uuid;
+  v_item_subtotal numeric(14,2);
+  v_unit_price numeric(14,2);
+  v_service_commission_type commission_kind;
+  v_service_commission_value numeric(14,2);
+  v_commission_amount numeric(14,2);
+  v_product_stock integer;
+  v_staff_valid boolean;
+  v_quantity integer;
+  v_discount numeric(14,2);
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to record a sale';
+  end if;
+
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'A sale must have at least one item';
+  end if;
+
+  if p_idempotency_key is null then
+    raise exception 'Idempotency key is required';
+  end if;
+
+  select * into v_existing from sales
+    where business_id = p_business_id and idempotency_key = p_idempotency_key;
+  if found then
+    return v_existing;
+  end if;
+
+  if p_customer_id is not null and not exists (
+    select 1 from customers where id = p_customer_id and business_id = p_business_id
+  ) then
+    raise exception 'Customer not found in this business';
+  end if;
+
+  -- Pass 1: resolve each item's authoritative catalog price exactly once
+  -- (never the client-supplied unit_price) and accumulate the sale's
+  -- subtotal from those authoritative values.
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_quantity := coalesce((v_item->>'quantity')::int, 1);
+    v_discount := coalesce((v_item->>'discount_amount')::numeric, 0);
+    v_service_commission_type := null;
+    v_service_commission_value := null;
+
+    if (v_item->>'item_type') = 'SERVICE' then
+      select price, commission_type, commission_value
+        into v_unit_price, v_service_commission_type, v_service_commission_value
+        from services where id = (v_item->>'service_id')::uuid and business_id = p_business_id;
+
+      if v_unit_price is null then
+        raise exception 'Service not found in this business';
+      end if;
+    elsif (v_item->>'item_type') = 'PRODUCT' then
+      select selling_price into v_unit_price
+        from products where id = (v_item->>'product_id')::uuid and business_id = p_business_id
+        for update;
+
+      if v_unit_price is null then
+        raise exception 'Product not found in this business';
+      end if;
+    else
+      raise exception 'Invalid item type';
+    end if;
+
+    v_item_subtotal := (v_unit_price * v_quantity) - v_discount;
+    if v_item_subtotal < 0 then
+      raise exception 'Discount cannot exceed the item subtotal';
+    end if;
+
+    v_subtotal := v_subtotal + v_item_subtotal;
+
+    v_resolved_items := v_resolved_items || jsonb_build_object(
+      'item_type', v_item->>'item_type',
+      'service_id', nullif(v_item->>'service_id', ''),
+      'product_id', nullif(v_item->>'product_id', ''),
+      'staff_id', v_item->>'staff_id',
+      'name_snapshot', v_item->>'name_snapshot',
+      'quantity', v_quantity,
+      'unit_price', v_unit_price,
+      'discount_amount', v_discount,
+      'item_subtotal', v_item_subtotal,
+      'commission_type', v_service_commission_type,
+      'commission_value', v_service_commission_value
+    );
+  end loop;
+
+  if v_subtotal < 0 then
+    raise exception 'Invalid sale: subtotal cannot be negative';
+  end if;
+
+  v_total := v_subtotal - coalesce(p_discount_amount, 0) + coalesce(p_tax_amount, 0);
+  if v_total < 0 then
+    raise exception 'Invalid sale: total cannot be negative';
+  end if;
+
+  if p_paid_amount is null then
+    raise exception 'Payment amount is required';
+  elsif p_paid_amount < 0 then
+    raise exception 'Payment amount cannot be negative';
+  elsif p_paid_amount = 0 then
+    raise exception 'Payment amount must be greater than zero';
+  elsif p_paid_amount < v_total and not coalesce(p_allow_partial_payment, false) then
+    raise exception 'Payment amount cannot be less than the sale total';
+  end if;
+
+  v_payment_status := case when p_paid_amount >= v_total then 'COMPLETED' else 'PARTIAL' end;
+  v_change := greatest(p_paid_amount - v_total, 0);
+
+  insert into sales (
+    business_id, branch_id, customer_id, cashier_id,
+    subtotal, discount_amount, tax_amount, total_amount,
+    paid_amount, change_amount, status, payment_status, idempotency_key
+  ) values (
+    p_business_id, p_branch_id, p_customer_id, auth.uid(),
+    v_subtotal, coalesce(p_discount_amount, 0), coalesce(p_tax_amount, 0), v_total,
+    p_paid_amount, v_change, 'COMPLETED', v_payment_status, p_idempotency_key
+  ) returning * into v_sale;
+
+  -- Pass 2: persist each line using the already-resolved authoritative
+  -- price/subtotal from pass 1 -- no re-query of services/products for
+  -- price. Stock sufficiency is still checked and deducted here, in the
+  -- same order as before the fix, so two lines referencing the same
+  -- product still interact correctly (the lock was already taken in
+  -- pass 1, so this re-read is immediate, not blocking).
+  for v_item in select * from jsonb_array_elements(v_resolved_items)
+  loop
+    v_staff_valid := false;
+    if (v_item->>'staff_id') is not null then
+      v_staff_valid := exists (
+        select 1 from business_members
+        where business_id = p_business_id
+          and user_id = (v_item->>'staff_id')::uuid
+          and active = true
+      );
+    end if;
+
+    v_commission_amount := 0;
+    if (v_item->>'item_type') = 'SERVICE' and v_staff_valid and (v_item->>'commission_type') is not null then
+      if (v_item->>'commission_type') = 'PERCENTAGE' then
+        v_commission_amount := round(
+          (v_item->>'item_subtotal')::numeric * coalesce((v_item->>'commission_value')::numeric, 0) / 100, 2
+        );
+      else
+        v_commission_amount := coalesce((v_item->>'commission_value')::numeric, 0);
+      end if;
+    end if;
+
+    insert into sale_items (
+      business_id, sale_id, item_type, service_id, product_id, staff_id,
+      name_snapshot, quantity, unit_price, discount_amount, subtotal, commission_amount
+    ) values (
+      p_business_id, v_sale.id, (v_item->>'item_type')::sale_item_kind,
+      nullif(v_item->>'service_id', '')::uuid, nullif(v_item->>'product_id', '')::uuid,
+      case when v_staff_valid then (v_item->>'staff_id')::uuid else null end,
+      v_item->>'name_snapshot', (v_item->>'quantity')::int,
+      (v_item->>'unit_price')::numeric, (v_item->>'discount_amount')::numeric,
+      (v_item->>'item_subtotal')::numeric, v_commission_amount
+    ) returning id into v_sale_item_id;
+
+    if (v_item->>'item_type') = 'PRODUCT' then
+      select stock_quantity into v_product_stock
+        from products where id = (v_item->>'product_id')::uuid
+        for update;
+
+      if v_product_stock < (v_item->>'quantity')::int then
+        raise exception 'Insufficient stock for %', (v_item->>'name_snapshot');
+      end if;
+
+      update products set stock_quantity = stock_quantity - (v_item->>'quantity')::int
+        where id = (v_item->>'product_id')::uuid;
+
+      insert into inventory_movements (
+        business_id, branch_id, product_id, movement_type, quantity,
+        reference_type, reference_id, created_by
+      ) values (
+        p_business_id, p_branch_id, (v_item->>'product_id')::uuid, 'SALE',
+        -(v_item->>'quantity')::int, 'sale', v_sale.id, auth.uid()
+      );
+    end if;
+
+    if v_commission_amount > 0 and v_staff_valid then
+      insert into commissions (
+        business_id, sale_id, sale_item_id, staff_id, commission_type,
+        commission_rate, commission_amount, status
+      ) values (
+        p_business_id, v_sale.id, v_sale_item_id, (v_item->>'staff_id')::uuid,
+        (v_item->>'commission_type')::commission_kind, coalesce((v_item->>'commission_value')::numeric, 0),
+        v_commission_amount, 'PENDING'
+      );
+    end if;
+  end loop;
+
+  insert into payments (business_id, sale_id, payment_method, amount, status, created_by)
+  values (p_business_id, v_sale.id, p_payment_method, p_paid_amount, 'COMPLETED', auth.uid());
+
+  if p_customer_id is not null then
+    perform set_config('app.trusted_customer_stats_update', 'true', true);
+    update customers set
+      total_spent = total_spent + v_total,
+      visit_count = visit_count + 1,
+      last_visit_at = now()
+    where id = p_customer_id and business_id = p_business_id;
+  end if;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'PAYMENT', 'sale', v_sale.id, to_jsonb(v_sale));
+
+  return v_sale;
+end;
+$$;
+
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text, boolean
+) from public;
+revoke execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text, boolean
+) from anon;
+grant execute on function complete_sale(
+  uuid, uuid, uuid, jsonb, numeric, numeric, payment_method_enum, numeric, text, boolean
+) to authenticated;
+
+-- Phase 3 (Deposit / Outstanding Balance): record_sale_payment -- the
+-- authoritative RPC for recording an additional payment against an
+-- existing sale and settling (fully or partially) its outstanding balance.
+--
+-- protect_sales_snapshot_columns (0022) currently blocks ANY change to
+-- sales.paid_amount on UPDATE, full stop -- correct at the time, since no
+-- legitimate code path ever needed to update an existing sale's paid_amount
+-- (complete_sale only ever INSERTs; this trigger fires on UPDATE only, so
+-- complete_sale was never affected by it). record_sale_payment is the first
+-- legitimate reason to update it, so the trigger gains a narrow,
+-- opt-in-by-trusted-context exception -- the exact same pattern already
+-- proven safe in 0023_complete_sale_customer_integrity.sql for
+-- customers.total_spent/visit_count/last_visit_at: a transaction-local
+-- set_config flag that only this RPC sets, immediately before its own
+-- UPDATE, inside the same transaction. A client cannot forge this context
+-- (set_config is a pg_catalog builtin, never exposed as a PostgREST RPC,
+-- and the flag is scoped to this transaction only). Every other blocked
+-- column (business_id, branch_id, customer_id, cashier_id, receipt_number,
+-- subtotal, discount_amount, tax_amount, total_amount, change_amount,
+-- idempotency_key, created_at) is completely untouched -- still
+-- unconditionally blocked, exactly as before. payment_status was never
+-- blocked by this trigger (it isn't in the original column list), so it
+-- needs no special-case handling.
+create or replace function protect_sales_snapshot_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.business_id is distinct from old.business_id
+     or new.branch_id is distinct from old.branch_id
+     or new.customer_id is distinct from old.customer_id
+     or new.cashier_id is distinct from old.cashier_id
+     or new.receipt_number is distinct from old.receipt_number
+     or new.subtotal is distinct from old.subtotal
+     or new.discount_amount is distinct from old.discount_amount
+     or new.tax_amount is distinct from old.tax_amount
+     or new.total_amount is distinct from old.total_amount
+     or new.change_amount is distinct from old.change_amount
+     or new.idempotency_key is distinct from old.idempotency_key
+     or new.created_at is distinct from old.created_at
+  then
+    raise exception 'Cannot modify financial, attribution, or identity fields on an existing sale -- only status and void metadata may be updated';
+  end if;
+
+  if new.paid_amount is distinct from old.paid_amount
+     and coalesce(current_setting('app.trusted_sale_settlement_update', true), '') <> 'true'
+  then
+    raise exception 'Cannot modify paid_amount on an existing sale outside the settlement RPC';
+  end if;
+
+  return new;
+end;
+$$;
+
+-- record_sale_payment: mirrors the auth/role/tenant/locking pattern already
+-- proven by void_sale and set_appointment_status. Never trusts a
+-- client-supplied balance or paid_amount -- both are recomputed here from
+-- the payments table (the append-only source of truth) and the locked
+-- sales row, every time.
+--
+-- Concurrency safety: the sales row is locked FOR UPDATE before the
+-- outstanding balance is computed, and held until the new payment is
+-- inserted and sales.paid_amount is updated, all in one transaction. Two
+-- concurrent calls against the same sale therefore serialize: the second
+-- caller blocks on the lock, then (once it resumes) recomputes the
+-- outstanding balance from the now-updated payments/sales state, so it can
+-- never accept a payment that would push paid_amount past total_amount --
+-- there is no window where both calls compute the balance from the same
+-- stale snapshot.
+create or replace function record_sale_payment(
+  p_business_id uuid,
+  p_sale_id uuid,
+  p_payment_method payment_method_enum,
+  p_amount numeric,
+  p_reference text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale sales;
+  v_payment payments;
+  v_paid_amount numeric(14,2);
+  v_outstanding numeric(14,2);
+  v_new_paid_amount numeric(14,2);
+  v_new_outstanding numeric(14,2);
+  v_new_payment_status payment_status_enum;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'CASHIER') then
+    raise exception 'Insufficient permission to record a payment';
+  end if;
+
+  select * into v_sale from sales
+    where id = p_sale_id and business_id = p_business_id
+    for update;
+
+  if v_sale.id is null then
+    raise exception 'Sale not found in this business';
+  end if;
+
+  if v_sale.status <> 'COMPLETED' then
+    raise exception 'Cannot record a payment against a % sale', v_sale.status;
+  end if;
+
+  -- Authoritative paid amount: sum of this sale's non-reversed payments,
+  -- never the client, never a stale sales.paid_amount snapshot (though in
+  -- practice they always agree, since this function is the only writer of
+  -- both after the initial complete_sale insert).
+  select coalesce(sum(amount), 0) into v_paid_amount
+    from payments where sale_id = p_sale_id and status <> 'REFUNDED';
+
+  v_outstanding := v_sale.total_amount - v_paid_amount;
+
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'Payment amount must be greater than zero';
+  end if;
+
+  if v_outstanding <= 0 then
+    raise exception 'This sale is already fully paid';
+  end if;
+
+  if p_amount > v_outstanding then
+    raise exception 'Payment amount cannot exceed the outstanding balance of %', v_outstanding;
+  end if;
+
+  insert into payments (business_id, sale_id, payment_method, amount, reference, status, created_by)
+  values (p_business_id, p_sale_id, p_payment_method, p_amount, p_reference, 'COMPLETED', auth.uid())
+  returning * into v_payment;
+
+  v_new_paid_amount := v_paid_amount + p_amount;
+  v_new_outstanding := v_sale.total_amount - v_new_paid_amount;
+  v_new_payment_status := case when v_new_outstanding <= 0 then 'COMPLETED' else 'PARTIAL' end;
+
+  perform set_config('app.trusted_sale_settlement_update', 'true', true);
+  update sales set
+    paid_amount = v_new_paid_amount,
+    payment_status = v_new_payment_status
+    where id = p_sale_id
+    returning * into v_sale;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, new_data)
+  values (p_business_id, auth.uid(), 'PAYMENT', 'sale', p_sale_id, to_jsonb(v_payment));
+
+  return jsonb_build_object(
+    'payment_id', v_payment.id,
+    'payment_amount', v_payment.amount,
+    'total_amount', v_sale.total_amount,
+    'paid_amount', v_sale.paid_amount,
+    'outstanding_balance', greatest(v_new_outstanding, 0),
+    'payment_status', v_sale.payment_status
+  );
+end;
+$$;
+
+revoke execute on function record_sale_payment(
+  uuid, uuid, payment_method_enum, numeric, text
+) from public;
+revoke execute on function record_sale_payment(
+  uuid, uuid, payment_method_enum, numeric, text
+) from anon;
+grant execute on function record_sale_payment(
+  uuid, uuid, payment_method_enum, numeric, text
+) to authenticated;
+
+-- Phase 3 (Deposit / Outstanding Balance): void_sale extension.
+--
+-- Every line here is verbatim from 0038_void_sale_package_guard.sql (which
+-- itself is verbatim from 0026_void_sale.sql except the package-redemption
+-- guard) except one new field in the final `update sales set ...` --
+-- payment_status = 'REFUNDED' alongside the existing status = 'VOIDED'.
+--
+-- Decision, per the Phase 3 audit (Step 8): a partially paid sale MAY be
+-- voided -- there is no reason to forbid it (unlike the package-redemption
+-- guard immediately below, which blocks voiding when real, non-reversible
+-- service delivery already happened; a partial cash payment has no such
+-- irreversibility). paid_amount is deliberately left untouched here, exactly
+-- as before this migration -- it remains the true historical record of what
+-- was actually collected before the void, satisfying "must not silently
+-- lose payment history." The existing
+-- `update payments set status = 'REFUNDED' where sale_id = p_sale_id and
+-- status <> 'REFUNDED'` line already correctly marks EVERY payment row for
+-- the sale (not just one), so it required no change to already support
+-- multiple payments -- confirmed by inspection, not assumed.
+--
+-- True partial refunds (returning only some of what was paid, as a
+-- distinct amount-tracked transaction) are explicitly OUT OF SCOPE for this
+-- migration -- see the Phase 3 implementation report's Step 8/Section 6 for
+-- the documented limitation. This migration only makes the existing
+-- status-only refund model correctly reflect PARTIAL-paid sales too.
+create or replace function void_sale(
+  p_business_id uuid,
+  p_sale_id uuid,
+  p_reason text
+)
+returns sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale sales;
+  v_old_sale jsonb;
+  v_item record;
+  v_product products;
+  v_reversed_commission_count int := 0;
+  v_reversed_inventory_count int := 0;
+  v_skipped_product_deleted_count int := 0;
+  v_customer_package customer_packages;
+  v_has_redemptions boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not has_role_at_least(p_business_id, 'MANAGER') then
+    raise exception 'Insufficient permission to void a sale';
+  end if;
+
+  if p_reason is null or char_length(trim(p_reason)) = 0 then
+    raise exception 'A void reason is required';
+  end if;
+
+  select * into v_sale from sales
+    where id = p_sale_id and business_id = p_business_id
+    for update;
+
+  if v_sale.id is null then
+    raise exception 'Sale not found in this business';
+  end if;
+
+  if v_sale.status <> 'COMPLETED' then
+    raise exception 'Only a completed sale can be voided';
+  end if;
+
+  v_old_sale := to_jsonb(v_sale);
+
+  select * into v_customer_package from customer_packages where sale_id = p_sale_id;
+
+  if v_customer_package.id is not null then
+    select exists (
+      select 1 from customer_package_items
+      where customer_package_id = v_customer_package.id and used_sessions > 0
+    ) into v_has_redemptions;
+
+    if v_has_redemptions then
+      raise exception 'Cannot void a package sale that has redeemed sessions';
+    end if;
+  end if;
+
+  for v_item in
+    select * from sale_items where sale_id = p_sale_id and item_type = 'PRODUCT'
+  loop
+    if v_item.product_id is null then
+      v_skipped_product_deleted_count := v_skipped_product_deleted_count + 1;
+      continue;
+    end if;
+
+    select * into v_product from products
+      where id = v_item.product_id and business_id = p_business_id
+      for update;
+
+    if v_product.id is null then
+      v_skipped_product_deleted_count := v_skipped_product_deleted_count + 1;
+      continue;
+    end if;
+
+    update products set stock_quantity = stock_quantity + v_item.quantity
+      where id = v_item.product_id;
+
+    insert into inventory_movements (
+      business_id, branch_id, product_id, movement_type, quantity,
+      reference_type, reference_id, note, created_by
+    ) values (
+      p_business_id, v_sale.branch_id, v_item.product_id, 'RETURN', v_item.quantity,
+      'sale_void', p_sale_id, 'Stock reversed from voided sale ' || v_sale.receipt_number, auth.uid()
+    );
+
+    v_reversed_inventory_count := v_reversed_inventory_count + 1;
+  end loop;
+
+  update commissions set status = 'REVERSED'
+    where sale_id = p_sale_id and status <> 'REVERSED';
+  get diagnostics v_reversed_commission_count = row_count;
+
+  update sales set
+    status = 'VOIDED',
+    payment_status = 'REFUNDED',
+    void_reason = p_reason,
+    voided_by = auth.uid(),
+    voided_at = now()
+    where id = p_sale_id
+    returning * into v_sale;
+
+  update payments set status = 'REFUNDED'
+    where sale_id = p_sale_id and status <> 'REFUNDED';
+
+  -- Phase 2: cancel the (unused) package entitlement alongside the sale.
+  if v_customer_package.id is not null then
+    update customer_packages set status = 'CANCELLED' where id = v_customer_package.id;
+  end if;
+
+  insert into audit_logs (business_id, user_id, action, entity_type, entity_id, old_data, new_data, metadata)
+  values (
+    p_business_id, auth.uid(), 'VOID', 'sale', p_sale_id, v_old_sale, to_jsonb(v_sale),
+    jsonb_build_object(
+      'reason', p_reason,
+      'reversed_commission_count', v_reversed_commission_count,
+      'reversed_inventory_line_count', v_reversed_inventory_count,
+      'skipped_product_deleted_lines', v_skipped_product_deleted_count,
+      'package_cancelled', v_customer_package.id is not null
+    )
+  );
+
+  return v_sale;
+end;
+$$;
+
+revoke execute on function void_sale(uuid, uuid, text) from public;
+revoke execute on function void_sale(uuid, uuid, text) from anon;
+grant execute on function void_sale(uuid, uuid, text) to authenticated;
+commit;

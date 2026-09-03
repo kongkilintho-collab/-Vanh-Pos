@@ -222,6 +222,33 @@ class AppLocalizationsLo extends AppLocalizations {
       'ຈຳນວນເງິນທີ່ຮັບຕ້ອງບໍ່ໜ້ອຍກວ່າຍອດລວມການຂາຍ.';
 
   @override
+  String get posAcceptDepositAction => 'ຮັບເງິນມັດຈຳ';
+
+  @override
+  String get posDepositTitle => 'ຮັບເງິນມັດຈຳ';
+
+  @override
+  String get posDepositAmountLabel => 'ຈຳນວນເງິນມັດຈຳ';
+
+  @override
+  String get posDepositAmountRequired => 'ກະລຸນາໃສ່ຈຳນວນເງິນມັດຈຳ';
+
+  @override
+  String get posDepositRemainingBalance => 'ຍອດຄົງເຫຼືອ';
+
+  @override
+  String get posDepositConfirmAction => 'ຢືນຢັນເງິນມັດຈຳ';
+
+  @override
+  String get posDepositResultTitle => 'ບັນທຶກເງິນມັດຈຳແລ້ວ';
+
+  @override
+  String get posDepositResultPaymentStatus => 'ສະຖານະການຈ່າຍເງິນ';
+
+  @override
+  String get posDepositDoneAction => 'ແລ້ວໆ';
+
+  @override
   String get paymentMethodCash => 'ເງິນສົດ';
 
   @override
@@ -272,6 +299,42 @@ class AppLocalizationsLo extends AppLocalizations {
 
   @override
   String get salesRowPaid => 'ຮັບເງິນແລ້ວ';
+
+  @override
+  String get salesStatusPending => 'ລໍຖ້າ';
+
+  @override
+  String get salesStatusPartial => 'ຈ່າຍບາງສ່ວນ';
+
+  @override
+  String get salesRowOutstanding => 'ຍອດຄ້າງຈ່າຍ';
+
+  @override
+  String get salesPaymentHistoryTitle => 'ປະຫວັດການຈ່າຍເງິນ';
+
+  @override
+  String get salesNoPayments => 'ຍັງບໍ່ມີການຈ່າຍເງິນ.';
+
+  @override
+  String get salesSettleBalanceAction => 'ຊຳລະຍອດຄ້າງ';
+
+  @override
+  String get salesSettleBalanceTitle => 'ຊຳລະຍອດຄ້າງຈ່າຍ';
+
+  @override
+  String get salesSettleAmountLabel => 'ຈຳນວນເງິນທີ່ຈ່າຍ';
+
+  @override
+  String get salesSettleReferenceOptionalLabel => 'ໝາຍເຫດ (ບໍ່ບັງຄັບ)';
+
+  @override
+  String get salesSettleSubmitAction => 'ບັນທຶກການຈ່າຍເງິນ';
+
+  @override
+  String get salesSettleAmountExceedsBalance => 'ຈຳນວນເງິນຫ້າມເກີນຍອດຄ້າງຈ່າຍ';
+
+  @override
+  String get salesSettleSuccessSnackbar => 'ບັນທຶກການຈ່າຍເງິນແລ້ວ.';
 
   @override
   String get customersFallbackTitle => 'ລູກຄ້າ';

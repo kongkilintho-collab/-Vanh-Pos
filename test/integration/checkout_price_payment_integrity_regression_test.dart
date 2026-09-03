@@ -208,7 +208,11 @@ void main() {
           paidAmount: '0',
           idempotencyKey: _uuid.v4(),
         ),
-        throwsA(isA<PostgrestException>().having((e) => e.message, 'message', contains('Payment amount cannot be less than the sale total'))),
+        // Phase 3 (0043) added a more specific zero-amount guard ahead of
+        // the total-comparison guard this test originally targeted -- a
+        // paid_amount of exactly 0 now hits that check first. The sale is
+        // still correctly rejected either way; only the message changed.
+        throwsA(isA<PostgrestException>().having((e) => e.message, 'message', contains('Payment amount must be greater than zero'))),
       );
 
       final noSale = await client.from('sales').select('id').eq('business_id', businessAId).eq('subtotal', 200000).eq('paid_amount', 0);

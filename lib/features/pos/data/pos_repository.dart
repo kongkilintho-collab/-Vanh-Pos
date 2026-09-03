@@ -59,9 +59,19 @@ class PosRepository {
     return (rows as List).map((r) => StaffMember.fromJson(r as Map<String, dynamic>)).toList();
   }
 
-  /// Calls the complete_sale RPC (see supabase/migrations/0017_pos_checkout.sql).
+  /// Calls the complete_sale RPC (see supabase/migrations/0017_pos_checkout.sql,
+  /// extended by supabase/migrations/0043_complete_sale_partial_payment.sql).
   /// Returns the raw sale row; the RPC itself is the atomic transaction —
   /// this is a single network call, not a client-orchestrated sequence.
+  ///
+  /// allowPartialPayment defaults to false and, when false, is not even
+  /// included in the request body -- the normal POS checkout path (this
+  /// default) sends byte-for-byte the same params it always has, so
+  /// existing behavior is completely unchanged. Only the explicit deposit
+  /// flow (see deposit_checkout_sheet.dart) ever passes true. The server
+  /// remains the sole authority either way: it still independently rejects
+  /// zero/negative amounts and an underpayment when this flag is false or
+  /// absent (see 0043's own guard), regardless of what the client sends.
   Future<Map<String, dynamic>> completeSale({
     required String businessId,
     String? branchId,
@@ -72,6 +82,7 @@ class PosRepository {
     required String paymentMethod,
     required String paidAmount,
     required String idempotencyKey,
+    bool allowPartialPayment = false,
   }) async {
     final row = await _client.rpc('complete_sale', params: {
       'p_business_id': businessId,
@@ -83,6 +94,7 @@ class PosRepository {
       'p_payment_method': paymentMethod,
       'p_paid_amount': paidAmount,
       'p_idempotency_key': idempotencyKey,
+      if (allowPartialPayment) 'p_allow_partial_payment': allowPartialPayment,
     });
     return row as Map<String, dynamic>;
   }
@@ -102,6 +114,32 @@ class PosRepository {
       'p_business_id': businessId,
       'p_sale_id': saleId,
       'p_reason': reason,
+    });
+    return row as Map<String, dynamic>;
+  }
+
+  /// Calls the record_sale_payment RPC (see
+  /// supabase/migrations/0044_record_sale_payment_rpc.sql), which atomically
+  /// locks the sale, recomputes the outstanding balance from the payments
+  /// table (never from client state), inserts the new payment, and updates
+  /// sales.paid_amount/payment_status -- all authoritative server-side.
+  /// Returns payment_id/payment_amount/total_amount/paid_amount/
+  /// outstanding_balance/payment_status, so the caller never has to
+  /// recompute the balance itself; it should re-fetch the sale/payment
+  /// history from the server afterward rather than assume local state.
+  Future<Map<String, dynamic>> recordSalePayment({
+    required String businessId,
+    required String saleId,
+    required String paymentMethod,
+    required String amount,
+    String? reference,
+  }) async {
+    final row = await _client.rpc('record_sale_payment', params: {
+      'p_business_id': businessId,
+      'p_sale_id': saleId,
+      'p_payment_method': paymentMethod,
+      'p_amount': amount,
+      'p_reference': reference,
     });
     return row as Map<String, dynamic>;
   }

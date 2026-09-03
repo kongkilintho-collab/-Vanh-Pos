@@ -1,0 +1,13 @@
+-- Phase 3 (Deposit / Outstanding Balance): adds the PARTIAL value to
+-- payment_status_enum, used by both sales.payment_status (a sale that has
+-- received some but not all of its total) and, transitively, nowhere else
+-- (payments.status for an individual payment row is always COMPLETED or
+-- REFUNDED -- an individual payment transaction is never itself "partial",
+-- only the sale's aggregate settlement state is).
+--
+-- Standalone file/transaction, following the exact precedent established by
+-- 0034_sale_item_kind_package_value.sql: Postgres cannot use a newly added
+-- enum value inside the same transaction that added it, so this migration
+-- does nothing else. The functions that reference 'PARTIAL' (complete_sale,
+-- record_sale_payment) are added in later, separate migrations.
+alter type payment_status_enum add value 'PARTIAL';

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/models/payment.dart';
 import '../../../shared/models/sale.dart';
 import '../../../shared/models/sale_item.dart';
 
@@ -41,5 +42,19 @@ class SalesRepository {
         .eq('business_id', businessId)
         .order('created_at');
     return (rows as List).map((r) => SaleItem.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  /// Phase 3 (Deposit / Outstanding Balance): payment history for a sale,
+  /// straight from the payments table -- the append-only source of truth a
+  /// client can never write to directly. Never derived from local/client
+  /// state.
+  Future<List<Payment>> listPayments(String businessId, String saleId) async {
+    final rows = await _client
+        .from('payments')
+        .select()
+        .eq('sale_id', saleId)
+        .eq('business_id', businessId)
+        .order('created_at');
+    return (rows as List).map((r) => Payment.fromJson(r as Map<String, dynamic>)).toList();
   }
 }

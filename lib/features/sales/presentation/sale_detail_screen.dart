@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/error_banner.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/business_role.dart';
+import '../../../shared/models/payment.dart';
+import '../../../shared/models/payment_method.dart';
 import '../../../shared/models/sale_item.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
@@ -14,6 +17,7 @@ import '../../../theme/app_text_styles.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../../pos/presentation/pos_providers.dart';
 import 'sales_providers.dart';
+import 'settle_payment_sheet.dart';
 import '../../../l10n/l10n_extensions.dart';
 
 Color statusColorFor(String status) => switch (status) {
@@ -26,6 +30,22 @@ String statusLabelFor(String status, AppLocalizations l10n) => switch (status) {
   'VOIDED' => l10n.salesStatusVoided,
   'REFUNDED' => l10n.salesStatusRefunded,
   _ => l10n.salesStatusCompleted,
+};
+
+/// Phase 3 (Deposit / Outstanding Balance): sales.payment_status badge --
+/// shown only when it says something the sale.status badge above doesn't
+/// already convey (PARTIAL or PENDING); a COMPLETED/REFUNDED payment_status
+/// is redundant with a COMPLETED/VOIDED sale.status and is not shown twice.
+Color? paymentStatusColorFor(String paymentStatus) => switch (paymentStatus) {
+  'PARTIAL' => AppColors.warning,
+  'PENDING' => AppColors.warning,
+  _ => null,
+};
+
+String? paymentStatusLabelFor(String paymentStatus, AppLocalizations l10n) => switch (paymentStatus) {
+  'PARTIAL' => l10n.salesStatusPartial,
+  'PENDING' => l10n.salesStatusPending,
+  _ => null,
 };
 
 class SaleDetailScreen extends ConsumerStatefulWidget {
@@ -110,11 +130,25 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
     }
   }
 
+  Future<void> _settle(String saleId, Decimal outstandingBalance) async {
+    final success = await showSettlePaymentSheet(
+      context,
+      saleId: saleId,
+      outstandingBalance: outstandingBalance,
+    );
+    if (success == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.salesSettleSuccessSnackbar)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(saleDetailProvider(widget.saleId));
     final membership = ref.watch(currentMembershipProvider);
     final canVoid = (membership?.role.isAtLeast(BusinessRole.manager)) ?? false;
+    final canSettle = (membership?.role.isAtLeast(BusinessRole.cashier)) ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -138,21 +172,45 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.xl),
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColorFor(sale.status).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Text(
-                  statusLabelFor(sale.status, context.l10n),
-                  style: AppTextStyles.captionStrong.copyWith(
-                    color: statusColorFor(sale.status),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColorFor(sale.status).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Text(
+                      statusLabelFor(sale.status, context.l10n),
+                      style: AppTextStyles.captionStrong.copyWith(
+                        color: statusColorFor(sale.status),
+                      ),
+                    ),
                   ),
-                ),
+                  if (paymentStatusLabelFor(sale.paymentStatus, context.l10n) != null) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: paymentStatusColorFor(sale.paymentStatus)!.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                      ),
+                      child: Text(
+                        paymentStatusLabelFor(sale.paymentStatus, context.l10n)!,
+                        style: AppTextStyles.captionStrong.copyWith(
+                          color: paymentStatusColorFor(sale.paymentStatus),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -192,6 +250,30 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
                 label: context.l10n.posChange,
                 value: formatMoney(sale.changeAmount),
               ),
+              if (sale.paymentStatus == 'PARTIAL')
+                _Row(
+                  label: context.l10n.salesRowOutstanding,
+                  value: formatMoney(sale.totalAmount - sale.paidAmount),
+                  strong: true,
+                ),
+              const Divider(height: AppSpacing.xxl),
+              Text(context.l10n.salesPaymentHistoryTitle, style: AppTextStyles.bodyStrong),
+              const SizedBox(height: AppSpacing.sm),
+              if (detail.payments.isEmpty)
+                Text(
+                  context.l10n.salesNoPayments,
+                  style: AppTextStyles.body.copyWith(color: AppColors.muted),
+                )
+              else
+                for (final payment in detail.payments) _PaymentHistoryRow(payment: payment),
+              if (sale.paymentStatus == 'PARTIAL' && !isVoided && canSettle) ...[
+                const SizedBox(height: AppSpacing.lg),
+                FilledButton.icon(
+                  onPressed: () => _settle(sale.id, sale.totalAmount - sale.paidAmount),
+                  icon: const Icon(Icons.payments_outlined, size: 18),
+                  label: Text(context.l10n.salesSettleBalanceAction),
+                ),
+              ],
               if (isVoided) ...[
                 const Divider(height: AppSpacing.xxl),
                 Text(
@@ -260,6 +342,50 @@ class _SaleItemRow extends StatelessWidget {
             ),
           ),
           Text(formatMoney(item.subtotal), style: AppTextStyles.body),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentHistoryRow extends StatelessWidget {
+  final Payment payment;
+
+  const _PaymentHistoryRow({required this.payment});
+
+  @override
+  Widget build(BuildContext context) {
+    final method = PaymentMethod.fromDb(payment.paymentMethod).label(context.l10n);
+    final refunded = payment.status == 'REFUNDED';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('MMM d, y · h:mm a').format(payment.createdAt.toLocal()),
+                  style: AppTextStyles.body,
+                ),
+                Text(
+                  payment.reference != null && payment.reference!.isNotEmpty
+                      ? '$method · ${payment.reference}'
+                      : method,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            formatMoney(payment.amount),
+            style: AppTextStyles.body.copyWith(
+              color: refunded ? AppColors.muted : null,
+              decoration: refunded ? TextDecoration.lineThrough : null,
+            ),
+          ),
         ],
       ),
     );
