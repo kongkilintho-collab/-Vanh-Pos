@@ -16,6 +16,7 @@
   "commonNoPhoneOnFile": "No phone on file",
   "commonCashier": "Cashier",
   "commonChoose": "Choose",
+  "commonClose": "Close",
 
   "authLoginTagline": "Sign in to your business",
   "authEmailLabel": "Email",
@@ -477,5 +478,39 @@
   "@pkgItemRemaining": { "placeholders": { "name": {"type": "String"}, "remaining": {"type": "int"}, "total": {"type": "int"} } },
   "pkgStatusActive": "Active",
   "pkgStatusExpired": "Expired",
-  "pkgStatusCancelled": "Cancelled"
+  "pkgStatusCancelled": "Cancelled",
+
+  "navFollowUps": "Follow-ups",
+  "reportsFollowUpsDueToday": "Follow-ups due today",
+  "reportsFollowUpsOverdue": "Follow-ups overdue",
+
+  "followUpStatusPending": "Pending",
+  "followUpStatusCompleted": "Completed",
+  "followUpStatusMissed": "Missed",
+  "followUpStatusCancelled": "Cancelled",
+  "followUpStaffRequired": "Select a staff member",
+  "followUpRescheduleTitle": "Reschedule follow-up",
+  "followUpFormTitle": "Add follow-up",
+  "followUpStaffLabel": "Assigned staff",
+  "followUpNotesLabel": "Notes",
+  "followUpRescheduleConfirm": "Confirm reschedule",
+  "followUpSaveAction": "Save follow-up",
+  "followUpHistoryTitle": "Follow-ups",
+  "followUpAddAction": "Add follow-up",
+  "followUpNoneYet": "No follow-ups yet.",
+  "followUpOverdueLabel": "Overdue",
+  "followUpListEmpty": "No follow-ups in this filter.",
+  "followUpFilterDueToday": "Due today",
+  "followUpFilterOverdue": "Overdue",
+  "followUpFilterUpcoming": "Upcoming",
+  "followUpFilterCompleted": "Completed",
+
+  "followUpLineStatusTitle": "LINE reminders",
+  "followUpLineNotLinked": "Not linked to LINE",
+  "followUpLineGenerateCode": "Generate linking code",
+  "followUpLineLinkedSince": "Linked to LINE since {date}",
+  "@followUpLineLinkedSince": { "placeholders": { "date": {"type": "String"} } },
+  "followUpLineUnlink": "Unlink",
+  "followUpLineLinkCodeTitle": "LINE linking code",
+  "followUpLineLinkCodeInstructions": "Ask the customer to send this code as a message to the business's LINE Official Account to receive reminders."
 }

@@ -51,6 +51,9 @@ class AppLocalizationsLo extends AppLocalizations {
   String get commonChoose => 'ເລືອກ';
 
   @override
+  String get commonClose => 'ປິດ';
+
+  @override
   String get authLoginTagline => 'ເຂົ້າສູ່ລະບົບທຸລະກິດຂອງທ່ານ';
 
   @override
@@ -1356,4 +1359,97 @@ class AppLocalizationsLo extends AppLocalizations {
 
   @override
   String get pkgStatusCancelled => 'ຍົກເລີກແລ້ວ';
+
+  @override
+  String get navFollowUps => 'ຕິດຕາມຜົນ';
+
+  @override
+  String get reportsFollowUpsDueToday => 'ຕິດຕາມຜົນຄົບກຳນົດມື້ນີ້';
+
+  @override
+  String get reportsFollowUpsOverdue => 'ຕິດຕາມຜົນເກີນກຳນົດ';
+
+  @override
+  String get followUpStatusPending => 'ລໍຖ້າ';
+
+  @override
+  String get followUpStatusCompleted => 'ສຳເລັດແລ້ວ';
+
+  @override
+  String get followUpStatusMissed => 'ພາດການຕິດຕາມ';
+
+  @override
+  String get followUpStatusCancelled => 'ຍົກເລີກແລ້ວ';
+
+  @override
+  String get followUpStaffRequired => 'ກະລຸນາເລືອກພະນັກງານ';
+
+  @override
+  String get followUpRescheduleTitle => 'ປ່ຽນວັນຕິດຕາມຜົນ';
+
+  @override
+  String get followUpFormTitle => 'ເພີ່ມການຕິດຕາມຜົນ';
+
+  @override
+  String get followUpStaffLabel => 'ພະນັກງານທີ່ຮັບຜິດຊອບ';
+
+  @override
+  String get followUpNotesLabel => 'ບັນທຶກ';
+
+  @override
+  String get followUpRescheduleConfirm => 'ຢືນຢັນການປ່ຽນວັນ';
+
+  @override
+  String get followUpSaveAction => 'ບັນທຶກການຕິດຕາມຜົນ';
+
+  @override
+  String get followUpHistoryTitle => 'ການຕິດຕາມຜົນ';
+
+  @override
+  String get followUpAddAction => 'ເພີ່ມການຕິດຕາມຜົນ';
+
+  @override
+  String get followUpNoneYet => 'ຍັງບໍ່ມີການຕິດຕາມຜົນ.';
+
+  @override
+  String get followUpOverdueLabel => 'ເກີນກຳນົດ';
+
+  @override
+  String get followUpListEmpty => 'ບໍ່ມີການຕິດຕາມຜົນໃນການກັ່ນຕອງນີ້.';
+
+  @override
+  String get followUpFilterDueToday => 'ຄົບກຳນົດມື້ນີ້';
+
+  @override
+  String get followUpFilterOverdue => 'ເກີນກຳນົດ';
+
+  @override
+  String get followUpFilterUpcoming => 'ທີ່ຈະມາເຖິງ';
+
+  @override
+  String get followUpFilterCompleted => 'ສຳເລັດແລ້ວ';
+
+  @override
+  String get followUpLineStatusTitle => 'ການແຈ້ງເຕືອນທາງ LINE';
+
+  @override
+  String get followUpLineNotLinked => 'ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ LINE';
+
+  @override
+  String get followUpLineGenerateCode => 'ສ້າງລະຫັດເຊື່ອມຕໍ່';
+
+  @override
+  String followUpLineLinkedSince(String date) {
+    return 'ເຊື່ອມຕໍ່ LINE ຕັ້ງແຕ່ $date';
+  }
+
+  @override
+  String get followUpLineUnlink => 'ຍົກເລີກການເຊື່ອມຕໍ່';
+
+  @override
+  String get followUpLineLinkCodeTitle => 'ລະຫັດເຊື່ອມຕໍ່ LINE';
+
+  @override
+  String get followUpLineLinkCodeInstructions =>
+      'ໃຫ້ລູກຄ້າສົ່ງລະຫັດນີ້ເປັນຂໍ້ຄວາມໄປຫາບັນຊີທາງການ LINE ຂອງທຸລະກິດ ເພື່ອຮັບການແຈ້ງເຕືອນ.';
 }

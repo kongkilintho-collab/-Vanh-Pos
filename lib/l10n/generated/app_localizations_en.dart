@@ -51,6 +51,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonChoose => 'Choose';
 
   @override
+  String get commonClose => 'Close';
+
+  @override
   String get authLoginTagline => 'Sign in to your business';
 
   @override
@@ -1359,4 +1362,97 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pkgStatusCancelled => 'Cancelled';
+
+  @override
+  String get navFollowUps => 'Follow-ups';
+
+  @override
+  String get reportsFollowUpsDueToday => 'Follow-ups due today';
+
+  @override
+  String get reportsFollowUpsOverdue => 'Follow-ups overdue';
+
+  @override
+  String get followUpStatusPending => 'Pending';
+
+  @override
+  String get followUpStatusCompleted => 'Completed';
+
+  @override
+  String get followUpStatusMissed => 'Missed';
+
+  @override
+  String get followUpStatusCancelled => 'Cancelled';
+
+  @override
+  String get followUpStaffRequired => 'Select a staff member';
+
+  @override
+  String get followUpRescheduleTitle => 'Reschedule follow-up';
+
+  @override
+  String get followUpFormTitle => 'Add follow-up';
+
+  @override
+  String get followUpStaffLabel => 'Assigned staff';
+
+  @override
+  String get followUpNotesLabel => 'Notes';
+
+  @override
+  String get followUpRescheduleConfirm => 'Confirm reschedule';
+
+  @override
+  String get followUpSaveAction => 'Save follow-up';
+
+  @override
+  String get followUpHistoryTitle => 'Follow-ups';
+
+  @override
+  String get followUpAddAction => 'Add follow-up';
+
+  @override
+  String get followUpNoneYet => 'No follow-ups yet.';
+
+  @override
+  String get followUpOverdueLabel => 'Overdue';
+
+  @override
+  String get followUpListEmpty => 'No follow-ups in this filter.';
+
+  @override
+  String get followUpFilterDueToday => 'Due today';
+
+  @override
+  String get followUpFilterOverdue => 'Overdue';
+
+  @override
+  String get followUpFilterUpcoming => 'Upcoming';
+
+  @override
+  String get followUpFilterCompleted => 'Completed';
+
+  @override
+  String get followUpLineStatusTitle => 'LINE reminders';
+
+  @override
+  String get followUpLineNotLinked => 'Not linked to LINE';
+
+  @override
+  String get followUpLineGenerateCode => 'Generate linking code';
+
+  @override
+  String followUpLineLinkedSince(String date) {
+    return 'Linked to LINE since $date';
+  }
+
+  @override
+  String get followUpLineUnlink => 'Unlink';
+
+  @override
+  String get followUpLineLinkCodeTitle => 'LINE linking code';
+
+  @override
+  String get followUpLineLinkCodeInstructions =>
+      'Ask the customer to send this code as a message to the business\'s LINE Official Account to receive reminders.';
 }

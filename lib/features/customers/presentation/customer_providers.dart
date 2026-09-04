@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/consultation_record.dart';
 import '../../../shared/models/customer.dart';
+import '../../../shared/models/follow_up.dart';
 import '../../../shared/models/treatment_record.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../auth/presentation/business_context_provider.dart';
 import '../data/consultation_repository.dart';
 import '../data/customer_repository.dart';
+import '../data/follow_up_repository.dart';
 import '../data/treatment_history_repository.dart';
 
 final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
@@ -41,6 +43,31 @@ final customerConsultationsProvider =
   final membership = ref.watch(currentMembershipProvider);
   if (membership == null) return const [];
   return ref.watch(consultationRepositoryProvider).listForCustomer(membership.business.id, customerId);
+});
+
+final followUpRepositoryProvider = Provider<FollowUpRepository>((ref) {
+  return FollowUpRepository(ref.watch(supabaseClientProvider));
+});
+
+/// Phase 6 (Follow-up / Reminder). Tenant-safety is enforced by RLS
+/// (is_member(business_id)) on the follow_ups table itself -- this
+/// provider's own business_id scoping is a query optimization, not the
+/// security boundary.
+final customerFollowUpsProvider =
+    FutureProvider.autoDispose.family<List<FollowUp>, String>((ref, customerId) async {
+  final membership = ref.watch(currentMembershipProvider);
+  if (membership == null) return const [];
+  return ref.watch(followUpRepositoryProvider).listForCustomer(membership.business.id, customerId);
+});
+
+/// Phase 6 LINE OA linking status for a customer. Returns only the
+/// linked-at timestamp (never the raw line_user_id) -- see
+/// FollowUpRepository.getLineLinkedAt.
+final customerLineLinkedAtProvider =
+    FutureProvider.autoDispose.family<DateTime?, String>((ref, customerId) async {
+  final membership = ref.watch(currentMembershipProvider);
+  if (membership == null) return null;
+  return ref.watch(followUpRepositoryProvider).getLineLinkedAt(membership.business.id, customerId);
 });
 
 final customerSearchQueryProvider = StateProvider.autoDispose<String>((ref) => '');

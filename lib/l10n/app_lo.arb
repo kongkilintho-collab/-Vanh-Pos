@@ -16,6 +16,7 @@
   "commonNoPhoneOnFile": "ບໍ່ມີເບີໂທ",
   "commonCashier": "ພະນັກງານແຄຊເຊຍ",
   "commonChoose": "ເລືອກ",
+  "commonClose": "ປິດ",
 
   "authLoginTagline": "ເຂົ້າສູ່ລະບົບທຸລະກິດຂອງທ່ານ",
   "authEmailLabel": "ອີເມວ",
@@ -477,5 +478,39 @@
   "@pkgItemRemaining": { "placeholders": { "name": {"type": "String"}, "remaining": {"type": "int"}, "total": {"type": "int"} } },
   "pkgStatusActive": "ໃຊ້ງານຢູ່",
   "pkgStatusExpired": "ໝົດອາຍຸແລ້ວ",
-  "pkgStatusCancelled": "ຍົກເລີກແລ້ວ"
+  "pkgStatusCancelled": "ຍົກເລີກແລ້ວ",
+
+  "navFollowUps": "ຕິດຕາມຜົນ",
+  "reportsFollowUpsDueToday": "ຕິດຕາມຜົນຄົບກຳນົດມື້ນີ້",
+  "reportsFollowUpsOverdue": "ຕິດຕາມຜົນເກີນກຳນົດ",
+
+  "followUpStatusPending": "ລໍຖ້າ",
+  "followUpStatusCompleted": "ສຳເລັດແລ້ວ",
+  "followUpStatusMissed": "ພາດການຕິດຕາມ",
+  "followUpStatusCancelled": "ຍົກເລີກແລ້ວ",
+  "followUpStaffRequired": "ກະລຸນາເລືອກພະນັກງານ",
+  "followUpRescheduleTitle": "ປ່ຽນວັນຕິດຕາມຜົນ",
+  "followUpFormTitle": "ເພີ່ມການຕິດຕາມຜົນ",
+  "followUpStaffLabel": "ພະນັກງານທີ່ຮັບຜິດຊອບ",
+  "followUpNotesLabel": "ບັນທຶກ",
+  "followUpRescheduleConfirm": "ຢືນຢັນການປ່ຽນວັນ",
+  "followUpSaveAction": "ບັນທຶກການຕິດຕາມຜົນ",
+  "followUpHistoryTitle": "ການຕິດຕາມຜົນ",
+  "followUpAddAction": "ເພີ່ມການຕິດຕາມຜົນ",
+  "followUpNoneYet": "ຍັງບໍ່ມີການຕິດຕາມຜົນ.",
+  "followUpOverdueLabel": "ເກີນກຳນົດ",
+  "followUpListEmpty": "ບໍ່ມີການຕິດຕາມຜົນໃນການກັ່ນຕອງນີ້.",
+  "followUpFilterDueToday": "ຄົບກຳນົດມື້ນີ້",
+  "followUpFilterOverdue": "ເກີນກຳນົດ",
+  "followUpFilterUpcoming": "ທີ່ຈະມາເຖິງ",
+  "followUpFilterCompleted": "ສຳເລັດແລ້ວ",
+
+  "followUpLineStatusTitle": "ການແຈ້ງເຕືອນທາງ LINE",
+  "followUpLineNotLinked": "ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ LINE",
+  "followUpLineGenerateCode": "ສ້າງລະຫັດເຊື່ອມຕໍ່",
+  "followUpLineLinkedSince": "ເຊື່ອມຕໍ່ LINE ຕັ້ງແຕ່ {date}",
+  "@followUpLineLinkedSince": { "placeholders": { "date": {"type": "String"} } },
+  "followUpLineUnlink": "ຍົກເລີກການເຊື່ອມຕໍ່",
+  "followUpLineLinkCodeTitle": "ລະຫັດເຊື່ອມຕໍ່ LINE",
+  "followUpLineLinkCodeInstructions": "ໃຫ້ລູກຄ້າສົ່ງລະຫັດນີ້ເປັນຂໍ້ຄວາມໄປຫາບັນຊີທາງການ LINE ຂອງທຸລະກິດ ເພື່ອຮັບການແຈ້ງເຕືອນ."
 }

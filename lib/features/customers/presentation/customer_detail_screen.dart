@@ -10,14 +10,18 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../l10n/l10n_extensions.dart';
 import '../../../shared/models/consultation_record.dart';
 import '../../../shared/models/customer_package_status.dart';
+import '../../../shared/models/follow_up.dart';
+import '../../../shared/models/follow_up_status.dart';
 import '../../../shared/models/treatment_record.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
+import '../../auth/presentation/business_context_provider.dart';
 import '../../packages/presentation/customer_package_providers.dart';
 import 'consultation_form_sheet.dart';
 import 'customer_form_sheet.dart';
 import 'customer_providers.dart';
+import 'follow_up_form_sheet.dart';
 import 'treatment_form_sheet.dart';
 
 class CustomerDetailScreen extends ConsumerWidget {
@@ -136,6 +140,25 @@ class CustomerDetailScreen extends ConsumerWidget {
                   ],
                 ),
                 _TreatmentHistorySection(customerId: customerId),
+                const SizedBox(height: AppSpacing.xxl),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(context.l10n.followUpHistoryTitle, style: AppTextStyles.title),
+                    TextButton(
+                      onPressed: () => showFollowUpFormSheet(context, customerId: customerId),
+                      child: Text(context.l10n.followUpAddAction),
+                    ),
+                  ],
+                ),
+                _FollowUpSection(customerId: customerId),
+                const SizedBox(height: AppSpacing.xxl),
+                Text(context.l10n.followUpLineStatusTitle, style: AppTextStyles.title),
+                const SizedBox(height: AppSpacing.md),
+                _LineStatusSection(
+                  customerId: customerId,
+                  businessId: customer.businessId,
+                ),
               ],
             ),
           );
@@ -651,6 +674,325 @@ class _ConsultationCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(consultation.consultationNotes!, style: AppTextStyles.body),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Phase 6 (Follow-up / Reminder) -- follows the exact same section shape
+/// as _TreatmentHistorySection/_ConsultationSection above: a simple
+/// ConsumerWidget reading its own FutureProvider, no shared generic
+/// abstraction.
+class _FollowUpSection extends ConsumerWidget {
+  final String customerId;
+
+  const _FollowUpSection({required this.customerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final followUpsAsync = ref.watch(customerFollowUpsProvider(customerId));
+
+    return followUpsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
+      data: (followUps) {
+        if (followUps.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: Text(
+              context.l10n.followUpNoneYet,
+              style: AppTextStyles.body.copyWith(color: AppColors.muted),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.md),
+          child: Column(
+            children: [
+              for (final followUp in followUps)
+                _FollowUpCard(followUp: followUp, customerId: customerId),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FollowUpCard extends ConsumerStatefulWidget {
+  final FollowUp followUp;
+  final String customerId;
+
+  const _FollowUpCard({required this.followUp, required this.customerId});
+
+  @override
+  ConsumerState<_FollowUpCard> createState() => _FollowUpCardState();
+}
+
+class _FollowUpCardState extends ConsumerState<_FollowUpCard> {
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _changeStatus(FollowUpStatus status) async {
+    final businessId = ref.read(currentMembershipProvider)?.business.id;
+    if (businessId == null) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(followUpRepositoryProvider).setStatus(
+            businessId: businessId,
+            followUpId: widget.followUp.id,
+            status: status,
+          );
+      ref.invalidate(customerFollowUpsProvider(widget.customerId));
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final followUp = widget.followUp;
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(followUp.assignedStaffNameSnapshot, style: AppTextStyles.bodyStrong),
+                ),
+                _FollowUpStatusChip(followUp: followUp),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              DateFormat('MMM d, y · h:mm a').format(followUp.dueDate.toLocal()),
+              style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+            ),
+            if (followUp.followUpNotes != null && followUp.followUpNotes!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(followUp.followUpNotes!, style: AppTextStyles.body),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              ErrorBanner(message: _error!),
+            ],
+            if (followUp.status == FollowUpStatus.pending) ...[
+              const SizedBox(height: AppSpacing.sm),
+              if (_loading)
+                const Center(child: CircularProgressIndicator())
+              else
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final next in followUp.status.nextOptions)
+                      OutlinedButton(
+                        onPressed: () => _changeStatus(next),
+                        child: Text(next.label(context.l10n)),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () => showFollowUpFormSheet(
+                        context,
+                        customerId: widget.customerId,
+                        existing: followUp,
+                      ),
+                      icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                      label: Text(context.l10n.followUpRescheduleTitle),
+                    ),
+                  ],
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FollowUpStatusChip extends StatelessWidget {
+  final FollowUp followUp;
+
+  const _FollowUpStatusChip({required this.followUp});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = followUp.isOverdue
+        ? context.l10n.followUpOverdueLabel
+        : followUp.status.label(context.l10n);
+    final color = switch (followUp.status) {
+      _ when followUp.isOverdue => AppColors.danger,
+      FollowUpStatus.pending => AppColors.primary,
+      FollowUpStatus.completed => AppColors.success,
+      FollowUpStatus.missed => AppColors.warning,
+      FollowUpStatus.cancelled => AppColors.muted,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Text(label, style: AppTextStyles.caption.copyWith(color: color)),
+    );
+  }
+}
+
+/// Phase 6 LINE OA linking status/actions. Deliberately never displays or
+/// requests a raw line_user_id, Channel Access Token, or Channel Secret --
+/// only a linked/not-linked state and (when not linked) a short-lived
+/// linking code for staff to relay to the customer. Flutter never calls
+/// the LINE Messaging API directly; the actual link is only ever written
+/// by the line-webhook Edge Function (see
+/// supabase/functions/line-webhook/index.ts).
+class _LineStatusSection extends ConsumerStatefulWidget {
+  final String customerId;
+  final String businessId;
+
+  const _LineStatusSection({required this.customerId, required this.businessId});
+
+  @override
+  ConsumerState<_LineStatusSection> createState() => _LineStatusSectionState();
+}
+
+class _LineStatusSectionState extends ConsumerState<_LineStatusSection> {
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _generateLinkCode() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final code = await ref
+          .read(followUpRepositoryProvider)
+          .createLineLinkCode(widget.businessId, widget.customerId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(context.l10n.followUpLineLinkCodeTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.l10n.followUpLineLinkCodeInstructions),
+              const SizedBox(height: AppSpacing.md),
+              SelectableText(code, style: AppTextStyles.displayMedium),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.commonClose),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _unlink() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(followUpRepositoryProvider).unlinkLineAccount(widget.businessId, widget.customerId);
+      ref.invalidate(customerLineLinkedAtProvider(widget.customerId));
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e, context.l10n));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linkedAtAsync = ref.watch(customerLineLinkedAtProvider(widget.customerId));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_error != null) ...[
+              ErrorBanner(message: _error!),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            linkedAtAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => ErrorBanner(message: friendlyError(err, context.l10n)),
+              data: (linkedAt) {
+                if (linkedAt == null) {
+                  return Row(
+                    children: [
+                      const Icon(Icons.link_off, size: 18, color: AppColors.muted),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          context.l10n.followUpLineNotLinked,
+                          style: AppTextStyles.body.copyWith(color: AppColors.muted),
+                        ),
+                      ),
+                      if (_loading)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        TextButton(
+                          onPressed: _generateLinkCode,
+                          child: Text(context.l10n.followUpLineGenerateCode),
+                        ),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    const Icon(Icons.link, size: 18, color: AppColors.success),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        context.l10n.followUpLineLinkedSince(
+                          DateFormat('MMM d, y').format(linkedAt.toLocal()),
+                        ),
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                    if (_loading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      TextButton(
+                        onPressed: _unlink,
+                        child: Text(context.l10n.followUpLineUnlink),
+                      ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),

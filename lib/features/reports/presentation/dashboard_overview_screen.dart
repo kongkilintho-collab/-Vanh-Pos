@@ -9,6 +9,7 @@ import '../../../shared/models/report_summary.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
+import '../../follow_ups/presentation/follow_up_providers.dart';
 import 'reports_providers.dart';
 import '../../../l10n/l10n_extensions.dart';
 
@@ -39,8 +40,49 @@ class DashboardOverviewScreen extends ConsumerWidget {
                 ErrorBanner(message: friendlyError(err, context.l10n)),
             data: (summary) => _OverviewMetrics(summary: summary),
           ),
+          const SizedBox(height: AppSpacing.md),
+          const _FollowUpMetrics(),
         ],
       ),
+    );
+  }
+}
+
+/// Phase 6 (Follow-up / Reminder) Dashboard tiles -- reuses the exact
+/// _MetricTile shape below, each tile reading its own server-side-scoped
+/// count provider (see follow_up_providers.dart), matching how every
+/// other section in this app reads its own FutureProvider rather than
+/// sharing one combined summary object.
+class _FollowUpMetrics extends ConsumerWidget {
+  const _FollowUpMetrics();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dueTodayAsync = ref.watch(followUpsDueTodayCountProvider);
+    final overdueAsync = ref.watch(followUpsOverdueCountProvider);
+
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.md,
+      children: [
+        _MetricTile(
+          label: context.l10n.reportsFollowUpsDueToday,
+          value: dueTodayAsync.when(
+            data: (count) => '$count',
+            loading: () => '—',
+            error: (_, _) => '—',
+          ),
+        ),
+        _MetricTile(
+          label: context.l10n.reportsFollowUpsOverdue,
+          value: overdueAsync.when(
+            data: (count) => '$count',
+            loading: () => '—',
+            error: (_, _) => '—',
+          ),
+          valueColor: (overdueAsync.valueOrNull ?? 0) > 0 ? AppColors.danger : null,
+        ),
+      ],
     );
   }
 }

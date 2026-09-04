@@ -14,6 +14,7 @@ import '../../auth/presentation/business_context_provider.dart';
 import '../../commissions/presentation/commissions_screen.dart';
 import '../../customers/presentation/customers_screen.dart';
 import '../../expenses/presentation/expenses_screen.dart';
+import '../../follow_ups/presentation/follow_ups_screen.dart';
 import '../../inventory/presentation/inventory_screen.dart';
 import '../../packages/presentation/packages_screen.dart';
 import '../../pos/presentation/pos_screen.dart';
@@ -44,6 +45,7 @@ class _NavItem {
     'sales' => l10n.navSales,
     'customers' => l10n.navCustomers,
     'appointments' => l10n.navAppointments,
+    'followups' => l10n.navFollowUps,
     'services' => l10n.navServices,
     'packages' => l10n.navPackages,
     'products' => l10n.navProducts,
@@ -81,6 +83,12 @@ const _navItems = [
   _NavItem(
     icon: Icons.calendar_month_outlined,
     id: 'appointments',
+    minRole: BusinessRole.cashier,
+    implemented: true,
+  ),
+  _NavItem(
+    icon: Icons.notifications_active_outlined,
+    id: 'followups',
     minRole: BusinessRole.cashier,
     implemented: true,
   ),
@@ -220,6 +228,8 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         return const CustomersScreen();
       case 'appointments':
         return const AppointmentsScreen();
+      case 'followups':
+        return const FollowUpsScreen();
       case 'staff':
         return const StaffScreen();
       case 'commissions':

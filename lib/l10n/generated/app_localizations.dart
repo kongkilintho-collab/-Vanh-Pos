@@ -182,6 +182,12 @@ abstract class AppLocalizations {
   /// **'Choose'**
   String get commonChoose;
 
+  /// No description provided for @commonClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get commonClose;
+
   /// No description provided for @authLoginTagline.
   ///
   /// In en, this message translates to:
@@ -2628,6 +2634,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancelled'**
   String get pkgStatusCancelled;
+
+  /// No description provided for @navFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups'**
+  String get navFollowUps;
+
+  /// No description provided for @reportsFollowUpsDueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups due today'**
+  String get reportsFollowUpsDueToday;
+
+  /// No description provided for @reportsFollowUpsOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups overdue'**
+  String get reportsFollowUpsOverdue;
+
+  /// No description provided for @followUpStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get followUpStatusPending;
+
+  /// No description provided for @followUpStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get followUpStatusCompleted;
+
+  /// No description provided for @followUpStatusMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get followUpStatusMissed;
+
+  /// No description provided for @followUpStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get followUpStatusCancelled;
+
+  /// No description provided for @followUpStaffRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a staff member'**
+  String get followUpStaffRequired;
+
+  /// No description provided for @followUpRescheduleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reschedule follow-up'**
+  String get followUpRescheduleTitle;
+
+  /// No description provided for @followUpFormTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add follow-up'**
+  String get followUpFormTitle;
+
+  /// No description provided for @followUpStaffLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned staff'**
+  String get followUpStaffLabel;
+
+  /// No description provided for @followUpNotesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get followUpNotesLabel;
+
+  /// No description provided for @followUpRescheduleConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm reschedule'**
+  String get followUpRescheduleConfirm;
+
+  /// No description provided for @followUpSaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save follow-up'**
+  String get followUpSaveAction;
+
+  /// No description provided for @followUpHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups'**
+  String get followUpHistoryTitle;
+
+  /// No description provided for @followUpAddAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add follow-up'**
+  String get followUpAddAction;
+
+  /// No description provided for @followUpNoneYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No follow-ups yet.'**
+  String get followUpNoneYet;
+
+  /// No description provided for @followUpOverdueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get followUpOverdueLabel;
+
+  /// No description provided for @followUpListEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No follow-ups in this filter.'**
+  String get followUpListEmpty;
+
+  /// No description provided for @followUpFilterDueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Due today'**
+  String get followUpFilterDueToday;
+
+  /// No description provided for @followUpFilterOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get followUpFilterOverdue;
+
+  /// No description provided for @followUpFilterUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get followUpFilterUpcoming;
+
+  /// No description provided for @followUpFilterCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get followUpFilterCompleted;
+
+  /// No description provided for @followUpLineStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'LINE reminders'**
+  String get followUpLineStatusTitle;
+
+  /// No description provided for @followUpLineNotLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'Not linked to LINE'**
+  String get followUpLineNotLinked;
+
+  /// No description provided for @followUpLineGenerateCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate linking code'**
+  String get followUpLineGenerateCode;
+
+  /// No description provided for @followUpLineLinkedSince.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked to LINE since {date}'**
+  String followUpLineLinkedSince(String date);
+
+  /// No description provided for @followUpLineUnlink.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink'**
+  String get followUpLineUnlink;
+
+  /// No description provided for @followUpLineLinkCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'LINE linking code'**
+  String get followUpLineLinkCodeTitle;
+
+  /// No description provided for @followUpLineLinkCodeInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the customer to send this code as a message to the business\'s LINE Official Account to receive reminders.'**
+  String get followUpLineLinkCodeInstructions;
 }
 
 class _AppLocalizationsDelegate
