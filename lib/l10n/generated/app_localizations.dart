@@ -1136,6 +1136,42 @@ abstract class AppLocalizations {
   /// **'New sale'**
   String get posReceiptNewSale;
 
+  /// No description provided for @posReceiptPrint.
+  ///
+  /// In en, this message translates to:
+  /// **'Print receipt'**
+  String get posReceiptPrint;
+
+  /// No description provided for @posReceiptPrinting.
+  ///
+  /// In en, this message translates to:
+  /// **'Printing...'**
+  String get posReceiptPrinting;
+
+  /// No description provided for @posReceiptPrintConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt sent to printer'**
+  String get posReceiptPrintConfirmed;
+
+  /// No description provided for @posReceiptPrintUncertain.
+  ///
+  /// In en, this message translates to:
+  /// **'Printer status unknown -- check the printer'**
+  String get posReceiptPrintUncertain;
+
+  /// No description provided for @posReceiptPrintFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach the printer'**
+  String get posReceiptPrintFailed;
+
+  /// No description provided for @posReceiptPrintNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'No receipt printer configured'**
+  String get posReceiptPrintNotConfigured;
+
   /// No description provided for @posCartItemCount.
   ///
   /// In en, this message translates to:

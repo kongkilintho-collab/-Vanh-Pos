@@ -186,6 +186,12 @@
   "@posReceiptPaidVia": { "placeholders": { "method": {"type": "String"} } },
   "posReceiptThankYou": "Thank you!",
   "posReceiptNewSale": "New sale",
+  "posReceiptPrint": "Print receipt",
+  "posReceiptPrinting": "Printing...",
+  "posReceiptPrintConfirmed": "Receipt sent to printer",
+  "posReceiptPrintUncertain": "Printer status unknown -- check the printer",
+  "posReceiptPrintFailed": "Couldn't reach the printer",
+  "posReceiptPrintNotConfigured": "No receipt printer configured",
   "posCartItemCount": "{count, plural, one{{count} item} other{{count} items}}",
   "@posCartItemCount": { "placeholders": { "count": {"type": "int"} } },
 

@@ -547,6 +547,25 @@ class AppLocalizationsLo extends AppLocalizations {
   String get posReceiptNewSale => 'ການຂາຍໃໝ່';
 
   @override
+  String get posReceiptPrint => 'ພິມໃບບິນ';
+
+  @override
+  String get posReceiptPrinting => 'ກຳລັງພິມ...';
+
+  @override
+  String get posReceiptPrintConfirmed => 'ສົ່ງໃບບິນໄປພິມແລ້ວ';
+
+  @override
+  String get posReceiptPrintUncertain =>
+      'ບໍ່ຮູ້ສະຖານະເຄື່ອງພິມ -- ກະລຸນາກວດເຄື່ອງພິມ';
+
+  @override
+  String get posReceiptPrintFailed => 'ບໍ່ສາມາດເຊື່ອມຕໍ່ເຄື່ອງພິມໄດ້';
+
+  @override
+  String get posReceiptPrintNotConfigured => 'ຍັງບໍ່ໄດ້ຕັ້ງຄ່າເຄື່ອງພິມໃບບິນ';
+
+  @override
   String posCartItemCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -186,6 +186,12 @@
   "@posReceiptPaidVia": { "placeholders": { "method": {"type": "String"} } },
   "posReceiptThankYou": "ຂອບໃຈ!",
   "posReceiptNewSale": "ການຂາຍໃໝ່",
+  "posReceiptPrint": "ພິມໃບບິນ",
+  "posReceiptPrinting": "ກຳລັງພິມ...",
+  "posReceiptPrintConfirmed": "ສົ່ງໃບບິນໄປພິມແລ້ວ",
+  "posReceiptPrintUncertain": "ບໍ່ຮູ້ສະຖານະເຄື່ອງພິມ -- ກະລຸນາກວດເຄື່ອງພິມ",
+  "posReceiptPrintFailed": "ບໍ່ສາມາດເຊື່ອມຕໍ່ເຄື່ອງພິມໄດ້",
+  "posReceiptPrintNotConfigured": "ຍັງບໍ່ໄດ້ຕັ້ງຄ່າເຄື່ອງພິມໃບບິນ",
   "posCartItemCount": "{count, plural, other{{count} ລາຍການ}}",
   "@posCartItemCount": { "placeholders": { "count": {"type": "int"} } },
 

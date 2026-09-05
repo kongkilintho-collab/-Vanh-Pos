@@ -547,6 +547,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get posReceiptNewSale => 'New sale';
 
   @override
+  String get posReceiptPrint => 'Print receipt';
+
+  @override
+  String get posReceiptPrinting => 'Printing...';
+
+  @override
+  String get posReceiptPrintConfirmed => 'Receipt sent to printer';
+
+  @override
+  String get posReceiptPrintUncertain =>
+      'Printer status unknown -- check the printer';
+
+  @override
+  String get posReceiptPrintFailed => 'Couldn\'t reach the printer';
+
+  @override
+  String get posReceiptPrintNotConfigured => 'No receipt printer configured';
+
+  @override
   String posCartItemCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

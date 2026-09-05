@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/hardware/hardware_providers.dart';
+import '../../../core/hardware/models/hardware_result.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../l10n/l10n_extensions.dart';
@@ -184,15 +187,123 @@ class ReceiptSheet extends StatelessWidget {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                child: PrimaryButton(
-                  label: context.l10n.posReceiptNewSale,
-                  onPressed: () => Navigator.of(context).pop(),
+                child: Column(
+                  children: [
+                    _PrintReceiptButton(
+                      sale: sale,
+                      business: business,
+                      lines: lines,
+                      customer: customer,
+                      paymentMethod: paymentMethod,
+                      cashierName: cashierName,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    PrimaryButton(
+                      label: context.l10n.posReceiptNewSale,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+/// Optional print action. This is a side effect of an already-completed
+/// sale: a printer failure here only updates this button's own status text
+/// -- it never touches the sale, never retries `complete_sale`, and never
+/// blocks "New sale".
+class _PrintReceiptButton extends ConsumerStatefulWidget {
+  final Sale sale;
+  final Business business;
+  final List<CartLine> lines;
+  final Customer? customer;
+  final PaymentMethod paymentMethod;
+  final String cashierName;
+
+  const _PrintReceiptButton({
+    required this.sale,
+    required this.business,
+    required this.lines,
+    required this.customer,
+    required this.paymentMethod,
+    required this.cashierName,
+  });
+
+  @override
+  ConsumerState<_PrintReceiptButton> createState() => _PrintReceiptButtonState();
+}
+
+class _PrintReceiptButtonState extends ConsumerState<_PrintReceiptButton> {
+  bool _printing = false;
+  String? _statusMessage;
+
+  Future<void> _print() async {
+    final hardwareAsync = ref.read(hardwareServiceProvider);
+    final hardware = hardwareAsync.valueOrNull;
+    if (hardware == null) return;
+
+    setState(() {
+      _printing = true;
+      _statusMessage = null;
+    });
+
+    final l10n = context.l10n;
+    final result = await hardware.printer.printSaleReceipt(
+      sale: widget.sale,
+      business: widget.business,
+      lines: widget.lines,
+      customer: widget.customer,
+      paymentMethod: widget.paymentMethod,
+      cashierName: widget.cashierName,
+      l10n: l10n,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _printing = false;
+      _statusMessage = switch (result.outcome) {
+        PrintOutcome.confirmed => l10n.posReceiptPrintConfirmed,
+        PrintOutcome.uncertain => l10n.posReceiptPrintUncertain,
+        PrintOutcome.failed => result.failure?.code == HardwareErrorCode.notConfigured
+            ? l10n.posReceiptPrintNotConfigured
+            : l10n.posReceiptPrintFailed,
+      };
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hardwareAsync = ref.watch(hardwareServiceProvider);
+    return Column(
+      children: [
+        OutlinedButton.icon(
+          onPressed: _printing || !hardwareAsync.hasValue ? null : _print,
+          icon: _printing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.print_outlined, size: 18),
+          label: Text(
+            _printing ? context.l10n.posReceiptPrinting : context.l10n.posReceiptPrint,
+          ),
+        ),
+        if (_statusMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              _statusMessage!,
+              style: AppTextStyles.caption.copyWith(color: AppColors.muted),
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
     );
   }
 }
