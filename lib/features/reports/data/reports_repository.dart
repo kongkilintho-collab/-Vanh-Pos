@@ -6,11 +6,19 @@ import '../../../shared/models/report_summary.dart';
 /// Read-only business reporting (Day 5). Every query here is a plain
 /// SELECT against tables that have carried `is_member(business_id)` RLS
 /// since the Day 1 foundation migrations (`sales`, `sale_items`,
-/// `commissions`, `expenses`, `products`) -- no new RLS policy and no RPC
-/// were needed, since nothing here writes anything or requires cross-table
+/// `commissions`, `expenses`, `products`, and -- since Phase 8 --
+/// `sale_item_batch_allocations`) -- no new RLS policy and no RPC were
+/// needed, since nothing here writes anything or requires cross-table
 /// atomicity. Deliberately independent from PosRepository/
 /// CommissionRepository/ExpenseRepository (same query technique, not a
 /// shared class) so nothing here can affect their write paths.
+///
+/// COGS (Phase 8 / 0055) is scoped to the same COMPLETED-sale set as
+/// revenue and sourced per line from whichever historical snapshot
+/// exists -- batch allocation snapshots, then the sale item's own cost
+/// snapshot, then (only for sale_items predating 0055) the product's
+/// current cost_price as a labeled estimate. See `summaryForRange` for
+/// the exact precedence.
 class ReportsRepository {
   final SupabaseClient _client;
 
@@ -30,30 +38,64 @@ class ReportsRepository {
 
     final salesRows = await _client
         .from('sales')
-        .select('total_amount')
+        .select('id, total_amount')
         .eq('business_id', businessId)
         .eq('status', 'COMPLETED')
         .gte('created_at', fromIso)
         .lte('created_at', toIso);
     var revenue = Decimal.zero;
+    final completedSaleIds = <String>[];
     for (final row in salesRows as List) {
-      revenue += Decimal.parse((row as Map<String, dynamic>)['total_amount'].toString());
+      final map = row as Map<String, dynamic>;
+      revenue += Decimal.parse(map['total_amount'].toString());
+      completedSaleIds.add(map['id'] as String);
     }
 
-    final productItemRows = await _client
-        .from('sale_items')
-        .select('quantity, products(cost_price)')
-        .eq('business_id', businessId)
-        .eq('item_type', 'PRODUCT')
-        .gte('created_at', fromIso)
-        .lte('created_at', toIso);
+    // COGS is scoped to the exact same COMPLETED-sale set as revenue above
+    // (by reusing completedSaleIds, not a separate date/status filter on
+    // sale_items) -- this is what makes a VOIDED sale's product cost
+    // excluded from COGS just as its revenue already was.
+    //
+    // Historical cost precedence per line, never recomputed from current
+    // state: (1) persisted batch allocations
+    // (sale_item_batch_allocations.unit_cost_snapshot -- immutable, set by
+    // complete_sale at sale time, 0053/0054) when the line was
+    // batch-tracked at sale time; else (2) sale_items.unit_cost_snapshot
+    // (immutable, set by complete_sale at sale time, added for unbatched
+    // lines from this point forward); else (3) the product's *current*
+    // cost_price, for sale_items created before that snapshot existed --
+    // an explicitly-labeled estimate only, never claimed as historical.
     var cogs = Decimal.zero;
-    for (final row in productItemRows as List) {
-      final map = row as Map<String, dynamic>;
-      final product = map['products'] as Map<String, dynamic>?;
-      final costPrice = Decimal.parse((product?['cost_price'] ?? 0).toString());
-      final quantity = map['quantity'] as int;
-      cogs += costPrice * Decimal.fromInt(quantity);
+    if (completedSaleIds.isNotEmpty) {
+      final productItemRows = await _client
+          .from('sale_items')
+          .select(
+            'quantity, unit_cost_snapshot, products(cost_price), sale_item_batch_allocations(quantity, unit_cost_snapshot)',
+          )
+          .eq('business_id', businessId)
+          .eq('item_type', 'PRODUCT')
+          .inFilter('sale_id', completedSaleIds);
+      for (final row in productItemRows as List) {
+        final map = row as Map<String, dynamic>;
+        final allocations = (map['sale_item_batch_allocations'] as List?) ?? const [];
+        if (allocations.isNotEmpty) {
+          for (final allocation in allocations) {
+            final a = allocation as Map<String, dynamic>;
+            final allocatedQuantity = Decimal.parse(a['quantity'].toString());
+            final allocationCost = Decimal.parse(a['unit_cost_snapshot'].toString());
+            cogs += allocatedQuantity * allocationCost;
+          }
+        } else if (map['unit_cost_snapshot'] != null) {
+          final snapshotCost = Decimal.parse(map['unit_cost_snapshot'].toString());
+          final quantity = map['quantity'] as int;
+          cogs += snapshotCost * Decimal.fromInt(quantity);
+        } else {
+          final product = map['products'] as Map<String, dynamic>?;
+          final costPrice = Decimal.parse((product?['cost_price'] ?? 0).toString());
+          final quantity = map['quantity'] as int;
+          cogs += costPrice * Decimal.fromInt(quantity);
+        }
+      }
     }
 
     final commissionRows = await _client
